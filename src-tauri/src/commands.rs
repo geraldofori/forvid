@@ -1,6 +1,9 @@
 //! Tauri commands exposed to the frontend.
 
-use crate::models::{EnvironmentStatus, VideoInfo};
+use tauri::{AppHandle, State};
+
+use crate::download::DownloadManager;
+use crate::models::{DownloadRequest, EnvironmentStatus, VideoInfo};
 
 /// Report which external binaries were found and their versions.
 #[tauri::command]
@@ -16,4 +19,25 @@ pub async fn fetch_metadata(url: String) -> Result<VideoInfo, String> {
     tauri::async_runtime::spawn_blocking(move || crate::ytdlp::fetch_metadata(&url))
         .await
         .map_err(|e| format!("metadata task failed: {e}"))?
+}
+
+/// Start a download. Returns the job id; progress arrives as
+/// `download-progress` events until a terminal stage
+/// (`completed` | `cancelled` | `error`).
+#[tauri::command]
+pub fn start_download(
+    app: AppHandle,
+    state: State<'_, DownloadManager>,
+    request: DownloadRequest,
+) -> Result<String, String> {
+    state.start(app, request)
+}
+
+/// Cancel a running download job.
+#[tauri::command]
+pub fn cancel_download(
+    state: State<'_, DownloadManager>,
+    job_id: String,
+) -> Result<(), String> {
+    state.cancel(&job_id)
 }

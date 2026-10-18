@@ -1,6 +1,6 @@
 //! Types shared across the Tauri command boundary with the frontend.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Availability and versions of the external binaries Forvid shells out to.
 #[derive(Debug, Clone, Serialize)]
@@ -27,4 +27,48 @@ pub struct VideoInfo {
     pub webpage_url: String,
     /// Distinct video heights actually offered for this video, descending.
     pub available_heights: Vec<u32>,
+}
+
+/// What to download, as chosen in the resolution dropdown.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Resolution {
+    /// yt-dlp's default: best video + best audio (bv*+ba/b).
+    Best,
+    /// Best video no better than Np: `-S res:N`.
+    Height { height: u32 },
+    /// Audio only: `-t mp3` preset alias.
+    AudioMp3,
+}
+
+/// Parameters for a single download job.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadRequest {
+    pub url: String,
+    pub resolution: Resolution,
+    /// Destination directory; defaults to ~/Downloads when absent.
+    pub output_dir: Option<String>,
+}
+
+/// Progress/lifecycle event emitted on `download-progress`.
+///
+/// Stages:
+/// - `downloading` / `stream-finished`: per-stream progress from yt-dlp
+///   (a merged download downloads the video stream, then the audio stream).
+/// - `completed`: process exited successfully; `filepath` is the final file.
+/// - `cancelled`: the user cancelled; `filepath` is absent.
+/// - `error`: yt-dlp failed; `error` holds the stderr tail.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressEvent {
+    pub job_id: String,
+    pub stage: String,
+    pub percent: Option<String>,
+    pub speed: Option<String>,
+    pub eta: Option<String>,
+    pub downloaded_bytes: Option<u64>,
+    pub total_bytes: Option<u64>,
+    pub filepath: Option<String>,
+    pub error: Option<String>,
 }

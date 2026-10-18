@@ -100,7 +100,7 @@ pub fn probe_version(binary: &Path, args: &[&str]) -> Option<String> {
 /// URLs are always passed to yt-dlp as an argument array entry (never
 /// through a shell), so this is defense-in-depth rather than injection
 /// prevention.
-fn validate_url(url: &str) -> Result<(), String> {
+pub(crate) fn validate_url(url: &str) -> Result<(), String> {
     let trimmed = url.trim();
     if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
         Ok(())

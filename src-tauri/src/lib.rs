@@ -1,4 +1,5 @@
 mod commands;
+mod download;
 mod models;
 mod ytdlp;
 
@@ -15,9 +16,12 @@ pub fn run() {
             }
             Ok(())
         })
+        .manage(download::DownloadManager::default())
         .invoke_handler(tauri::generate_handler![
             commands::check_environment,
-            commands::fetch_metadata
+            commands::fetch_metadata,
+            commands::start_download,
+            commands::cancel_download
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
