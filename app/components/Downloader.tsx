@@ -102,7 +102,16 @@ export default function Downloader() {
       setMetaLoading(true);
       try {
         const info = await fetchMetadata(trimmed);
-        if (seq === metaSeq.current) setMeta(info);
+        if (seq === metaSeq.current) {
+          setMeta(info);
+          // Default to a medium quality, not the best: the largest height
+          // at or under 720p, else the smallest available, else Best.
+          // (availableHeights is sorted descending.)
+          const heights = info.availableHeights;
+          const medium =
+            heights.find((h) => h <= 720) ?? heights[heights.length - 1];
+          setResolution(medium ? String(medium) : "best");
+        }
       } catch (e) {
         if (seq === metaSeq.current) setMetaError(String(e));
       } finally {
