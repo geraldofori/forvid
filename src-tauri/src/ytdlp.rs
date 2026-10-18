@@ -103,14 +103,16 @@ pub struct Binaries {
 }
 
 impl Binaries {
-    /// Resolve all binaries, preferring the app's managed downloads over
-    /// system installs. Fails only if yt-dlp is missing from both; ffmpeg
-    /// and deno are optional (yt-dlp degrades gracefully, but we surface
-    /// their absence in [`crate::models::EnvironmentStatus`]).
+    /// Resolve all binaries, preferring system installs (faster startup —
+    /// the managed yt-dlp is a PyInstaller binary that unpacks itself on
+    /// every invocation) and falling back to the app's managed downloads.
+    /// Fails only if yt-dlp is missing from both; ffmpeg and deno are
+    /// optional (yt-dlp degrades gracefully, but we surface their absence
+    /// in [`crate::models::EnvironmentStatus`]).
     pub fn resolve() -> Result<Self, String> {
         let managed = crate::tools::tools_dir();
         let find = |name: &str| {
-            crate::tools::find_in(&managed, name).or_else(|| find_binary(name))
+            find_binary(name).or_else(|| crate::tools::find_in(&managed, name))
         };
         let ytdlp = find("yt-dlp").ok_or_else(|| {
             format!("yt-dlp was not found. Install it with: {INSTALL_HINT}")

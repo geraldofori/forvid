@@ -1,9 +1,10 @@
 //! App-managed download tools.
 //!
 //! Forvid can run fully self-sufficiently: on first launch it downloads
-//! yt-dlp, ffmpeg/ffprobe and deno into its own tools directory and prefers
-//! those over system installs, so non-technical users never touch a package
-//! manager. Binaries are downloaded directly from their official sources
+//! yt-dlp, ffmpeg/ffprobe and deno into its own tools directory, so
+//! non-technical users never touch a package manager. System installs are
+//! preferred when present (faster startup); managed tools are the fallback.
+//! Binaries are downloaded directly from their official sources
 //! (GitHub releases for yt-dlp/deno, martin-riedl.de static builds for
 //! macOS ffmpeg) and are therefore not quarantined by Gatekeeper.
 //!

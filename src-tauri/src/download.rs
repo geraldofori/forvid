@@ -486,10 +486,12 @@ mod tests {
             .expect("download must start");
         assert!(job_id.starts_with("job-"));
 
-        let deadline = std::time::Instant::now() + Duration::from_secs(120);
+        let deadline = std::time::Instant::now() + Duration::from_secs(180);
         let terminal = loop {
             let ev = rx
-                .recv_timeout(Duration::from_secs(10))
+                // The managed yt-dlp is a PyInstaller binary with ~8s
+                // startup, plus metadata extraction before first progress.
+                .recv_timeout(Duration::from_secs(30))
                 .expect("events must keep arriving");
             if matches!(ev.stage.as_str(), "completed" | "cancelled" | "error") {
                 break ev;
