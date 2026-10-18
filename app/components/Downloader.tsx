@@ -18,6 +18,7 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 import ClipboardChip from "./ClipboardChip";
+import InfoButton from "./InfoButton";
 import MetadataCard from "./MetadataCard";
 import PlaylistCard from "./PlaylistCard";
 
@@ -200,6 +201,11 @@ export default function Downloader() {
 
   return (
     <section className="downloader">
+      <header className="app-header">
+        <h1>Forvid</h1>
+        <InfoButton />
+      </header>
+
       {job.phase === "idle" && <ClipboardChip onUse={setUrl} />}
 
       <input
