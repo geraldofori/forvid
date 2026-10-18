@@ -274,7 +274,9 @@ fn build_args(bins: &Binaries, request: &DownloadRequest) -> Vec<String> {
     let output_dir = request
         .output_dir
         .clone()
-        .or_else(|| std::env::var("HOME").ok().map(|h| format!("{h}/Downloads")))
+        .or_else(|| {
+            std::env::home_dir().map(|h| h.join("Downloads").to_string_lossy().into_owned())
+        })
         .unwrap_or_else(|| ".".to_string());
 
     // Playlist jobs drop --no-playlist and save into a subfolder named

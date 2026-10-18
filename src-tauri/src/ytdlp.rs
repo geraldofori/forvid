@@ -19,23 +19,78 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Directories probed for binaries, highest priority first.
+///
+/// PATH is searched first (covers most Linux/Windows installs and any
+/// terminal use). OS-specific well-known locations follow, because apps
+/// launched from a GUI (Finder, Start menu, .desktop) can inherit a
+/// minimal PATH that hides package-manager binaries.
 fn candidate_dirs() -> Vec<PathBuf> {
-    let mut dirs = vec![
-        PathBuf::from("/opt/homebrew/bin"),
-        PathBuf::from("/usr/local/bin"),
-    ];
-    if let Ok(home) = std::env::var("HOME") {
-        dirs.push(PathBuf::from(home).join(".local/bin"));
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    if let Ok(path) = std::env::var("PATH") {
+        dirs.extend(std::env::split_paths(&path));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        dirs.push(PathBuf::from("/opt/homebrew/bin"));
+        dirs.push(PathBuf::from("/usr/local/bin"));
+    }
+    #[cfg(target_os = "linux")]
+    {
+        dirs.push(PathBuf::from("/usr/local/bin"));
+        dirs.push(PathBuf::from("/usr/bin"));
+        dirs.push(PathBuf::from("/snap/bin"));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(local) = std::env::var("LOCALAPPDATA") {
+            // `winget install yt-dlp.yt-dlp` links land here
+            dirs.push(PathBuf::from(&local).join(r"Microsoft\WinGet\Links"));
+        }
+        dirs.push(PathBuf::from(r"C:\ProgramData\chocolatey\bin"));
+    }
+
+    if let Some(home) = std::env::home_dir() {
+        #[cfg(not(windows))]
+        dirs.push(home.join(".local").join("bin"));
+        #[cfg(windows)]
+        dirs.push(home.join("scoop").join("shims"));
     }
     dirs
+}
+
+/// Platform-specific executable names, tried in order (Windows has .exe).
+fn binary_names(name: &str) -> Vec<String> {
+    #[cfg(windows)]
+    {
+        vec![format!("{name}.exe"), name.to_string()]
+    }
+    #[cfg(not(windows))]
+    {
+        vec![name.to_string()]
+    }
 }
 
 fn find_binary(name: &str) -> Option<PathBuf> {
     candidate_dirs()
         .into_iter()
-        .map(|dir| dir.join(name))
+        .flat_map(|dir| {
+            binary_names(name)
+                .into_iter()
+                .map(move |n| dir.join(n))
+        })
         .find(|path| path.is_file())
 }
+
+/// Per-OS install guidance shown when yt-dlp is missing.
+#[cfg(target_os = "macos")]
+const INSTALL_HINT: &str = "brew install yt-dlp ffmpeg";
+#[cfg(target_os = "linux")]
+const INSTALL_HINT: &str =
+    "pip install yt-dlp && sudo apt install ffmpeg  (or your distro's packages)";
+#[cfg(target_os = "windows")]
+const INSTALL_HINT: &str =
+    "winget install yt-dlp.yt-dlp && winget install Gyan.FFmpeg";
 
 /// Resolved locations of everything needed to run yt-dlp correctly.
 #[derive(Debug, Clone)]
@@ -53,7 +108,7 @@ impl Binaries {
     /// surface their absence in [`crate::models::EnvironmentStatus`]).
     pub fn resolve() -> Result<Self, String> {
         let ytdlp = find_binary("yt-dlp").ok_or_else(|| {
-            "yt-dlp was not found. Install it with: brew install yt-dlp ffmpeg".to_string()
+            format!("yt-dlp was not found. Install it with: {INSTALL_HINT}")
         })?;
         let ffmpeg_dir = find_binary("ffmpeg").and_then(|p| p.parent().map(Path::to_path_buf));
         let deno_dir = find_binary("deno").and_then(|p| p.parent().map(Path::to_path_buf));
@@ -64,21 +119,31 @@ impl Binaries {
         })
     }
 
-    /// PATH value for spawned yt-dlp children, guaranteeing Homebrew tools
-    /// are visible even under a Finder-launched minimal environment.
+    /// PATH value for spawned yt-dlp children, guaranteeing the resolved
+    /// tools (and base system dirs) are visible even under a GUI-launched
+    /// minimal environment. Uses the OS path separator via `join_paths`.
     pub fn child_path(&self) -> String {
-        let mut dirs: Vec<String> = Vec::new();
+        let mut dirs: Vec<PathBuf> = Vec::new();
         for dir in [&self.ffmpeg_dir, &self.deno_dir].into_iter().flatten() {
-            dirs.push(dir.to_string_lossy().into_owned());
+            dirs.push(dir.clone());
         }
         if let Some(parent) = self.ytdlp.parent() {
-            dirs.push(parent.to_string_lossy().into_owned());
+            dirs.push(parent.to_path_buf());
         }
         if let Ok(existing) = std::env::var("PATH") {
-            dirs.push(existing);
+            dirs.extend(std::env::split_paths(&existing));
         }
-        dirs.push("/usr/bin:/bin:/usr/sbin:/sbin".to_string());
-        dirs.join(":")
+        #[cfg(not(windows))]
+        for base in ["/usr/bin", "/bin", "/usr/sbin", "/sbin"] {
+            dirs.push(PathBuf::from(base));
+        }
+        #[cfg(windows)]
+        if let Ok(sysroot) = std::env::var("SystemRoot") {
+            dirs.push(PathBuf::from(sysroot).join("System32"));
+        }
+        std::env::join_paths(dirs)
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default()
     }
 }
 

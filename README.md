@@ -47,49 +47,104 @@ the yt-dlp install already on your Mac.
 
 ## Requirements
 
-- macOS (Apple Silicon or Intel)
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [ffmpeg](https://ffmpeg.org)
-  installed. The easiest way is [Homebrew](https://brew.sh):
+Every platform needs two things:
 
-  ```sh
-  brew install yt-dlp ffmpeg
-  ```
+1. **Build tools** — [Node.js](https://nodejs.org) and
+   [Rust](https://www.rust-lang.org/tools/install) (`rustup`)
+2. **yt-dlp and ffmpeg** — Forvid drives your system install. ffmpeg merges
+   high-quality video+audio into MP4; [deno](https://deno.land) lets yt-dlp
+   handle YouTube's current player challenges. Forvid finds them
+   automatically (it searches PATH plus the usual package-manager locations,
+   so it also works when launched from Finder/Start menu/a .desktop file).
 
-  Forvid finds them automatically (it checks Homebrew's install location
-  directly, so it works even when launched from Finder). ffmpeg is what
-  merges high-quality video and audio into one MP4 file, and
-  [deno](https://deno.land) — installed automatically by Homebrew as a yt-dlp
-  dependency — is what lets yt-dlp handle YouTube's current player changes.
+The per-OS specifics are below.
 
-## Installation
-
-### Option 1 — From source (current)
+## Setup — macOS
 
 ```sh
-# 1. Install Rust, if you don't have it
+# 1. yt-dlp + ffmpeg (deno comes along as a yt-dlp dependency)
+brew install yt-dlp ffmpeg
+
+# 2. Rust, if you don't have it
 curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 
-# 2. Clone and build
+# 3. Build and install
 git clone https://github.com/geraldofori/forvid.git
 cd forvid
 npm install
 npm run tauri build
-
-# 3. Install the app
 cp -R src-tauri/target/release/bundle/macos/Forvid.app /Applications
 ```
 
-The built app is at `src-tauri/target/release/bundle/macos/Forvid.app`, and a
-DMG is at `src-tauri/target/release/bundle/dmg/Forvid_0.1.0_aarch64.dmg`.
+The DMG is at `src-tauri/target/release/bundle/dmg/`.
 
 Because Forvid is built ad-hoc signed (no Apple Developer account), the first
 launch may be blocked by Gatekeeper. If that happens: **right-click the app →
 Open → Open**.
 
-### Option 2 — Download a release
+## Setup — Windows
 
-Pre-built releases will be published on the
-[Releases](https://github.com/geraldofori/forvid/releases) page.
+1. **yt-dlp + ffmpeg** (via [winget](https://learn.microsoft.com/windows/package-manager/winget/), included in Windows 10/11):
+
+   ```powershell
+   winget install yt-dlp.yt-dlp
+   winget install Gyan.FFmpeg
+   ```
+
+2. **WebView2** — already present on Windows 10 (1803+) and 11. Otherwise get
+   the [Evergreen Bootstrapper](https://developer.microsoft.com/microsoft-edge/webview2/).
+3. **Microsoft C++ Build Tools** — from the
+   [Visual Studio installer](https://visualstudio.microsoft.com/visual-cpp-build-tools/),
+   select "Desktop development with C++".
+4. **Rust** — `winget install Rustlang.Rustup` (choose the MSVC toolchain).
+5. **Build**:
+
+   ```powershell
+   git clone https://github.com/geraldofori/forvid.git
+   cd forvid
+   npm install
+   npm run tauri build
+   ```
+
+   The app and installers land in `src-tauri\target\release\bundle\`
+   (`nsis` / `msi` installers, or the standalone `app.exe` in
+   `src-tauri\target\release\`).
+
+## Setup — Linux
+
+1. **Tauri's system dependencies** (Debian/Ubuntu — see the
+   [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for other
+   distros):
+
+   ```sh
+   sudo apt update
+   sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
+     libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+   ```
+
+2. **yt-dlp + ffmpeg**:
+
+   ```sh
+   sudo apt install ffmpeg
+   pip install yt-dlp        # or: sudo apt install yt-dlp on newer releases
+   ```
+
+3. **Rust** — `curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh`
+4. **Build**:
+
+   ```sh
+   git clone https://github.com/geraldofori/forvid.git
+   cd forvid
+   npm install
+   npm run tauri build
+   ```
+
+   Packages land in `src-tauri/target/release/bundle/` (`.AppImage`, `.deb`).
+
+> Forvid is developed and tested on macOS; the same codebase builds on
+> Windows and Linux (the engine resolves yt-dlp per-OS). Pre-built downloads
+> for all three platforms will be published on the
+> [Releases](https://github.com/geraldofori/forvid/releases) page.
 
 ## Using Forvid
 
