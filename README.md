@@ -15,17 +15,22 @@ the yt-dlp install already on your Mac.
 - **Paste a link, get the video.** Forvid fetches the video's title, channel,
   duration and thumbnail before you download anything, so you always know
   what you're getting.
+- **Whole playlists, one click.** Paste a playlist link and Forvid offers to
+  download the entire thing into a new folder named after the playlist,
+  with "Video 3 of 24" progress along the way.
 - **Clipboard aware.** Copy a link anywhere on your Mac, switch back to
   Forvid, and it offers to use it — one click, no pasting.
 - **Real quality choice.** The quality dropdown is built from the resolutions
   the video *actually* has (no offering 4K for a 720p upload), plus
-  **Audio only (MP3)** for music and podcasts.
+  **Audio only (MP3)** for music and podcasts. Defaults to a sensible medium
+  (~720p) instead of the biggest file.
 - **Honest progress.** Percent, download speed, ETA, and bytes downloaded vs
   total — streamed live from yt-dlp. Cancel any download mid-flight.
 - **You choose where files go.** Downloads land in `~/Downloads` by default;
   change the destination with the native macOS folder picker.
-- **Works with your system.** Native notification when a download completes,
-  and **Reveal in Finder** to jump straight to the file.
+- **Works with your system.** Dark and light mode (follows your Mac by
+  default, or pick one), native notification when a download completes, and
+  **Reveal in Finder** to jump straight to the file.
 
 ## Capabilities at a glance
 
@@ -35,7 +40,8 @@ the yt-dlp install already on your Mac.
 | Video quality | Best available, or capped at any resolution the video offers (up to 4K+) |
 | Audio | MP3 extraction via ffmpeg |
 | Container | Merges high-quality video+audio into MP4 |
-| Playlists | Single videos only for now — playlists are on the roadmap |
+| Playlists | Full playlists, saved into a folder named after the playlist |
+| Appearance | Dark and light mode — follows the system, or pick manually |
 | Concurrency | One download at a time (a queue is planned) |
 | Size | ~12 MB installed (Tauri, not Electron) |
 
@@ -87,16 +93,22 @@ Pre-built releases will be published on the
 
 ## Using Forvid
 
-1. **Copy a video link** anywhere (or paste one directly into the box).
-   If the app notices a link on your clipboard, it offers to fill it in.
-2. **Check the preview** — title, channel, duration and thumbnail appear
-   automatically.
+1. **Copy a video or playlist link** anywhere (or paste one directly into
+   the box). If the app notices a link on your clipboard, it offers to fill
+   it in.
+2. **Check the preview** — for a video: title, channel, duration and
+   thumbnail. For a playlist: its title and video count, plus the folder it
+   will create.
 3. **Pick a quality** — "Best available", a specific resolution, or
-   "Audio only · MP3".
+   "Audio only · MP3". It defaults to a medium quality (~720p) to keep
+   file sizes sane.
 4. **(Optional) change where it saves** with the *Change* button next to
    "Save to".
 5. **Hit Download.** Watch the live progress bar. Cancel anytime.
 6. When it's done, **Reveal in Finder** takes you straight to the file.
+
+> **Playlists** are saved into a new folder named after the playlist, inside
+> your chosen destination — e.g. `~/Downloads/My Playlist/`.
 
 > **Why does the progress bar sometimes fill twice?** For high-quality
 > downloads, yt-dlp fetches the video and audio as separate streams and merges
@@ -161,11 +173,10 @@ src-tauri/src/
 
 ## Roadmap
 
-- [ ] Playlist downloads (save a whole playlist to its own folder)
-- [ ] Download queue (multiple videos, one after another)
-- [ ] Dark/light mode toggle
+- [ ] Download queue (line up several videos or playlists)
 - [ ] Subtitle download options
 - [ ] Bundled yt-dlp, so the app works with zero setup
+- [ ] Per-video progress within a playlist download
 
 ## Acknowledgements
 
