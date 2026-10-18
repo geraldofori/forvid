@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::models::{DownloadRequest, ProgressEvent, Resolution};
-use crate::ytdlp::{validate_url, Binaries};
+use crate::ytdlp::{Binaries, validate_url};
 
 /// Tauri event the frontend listens on for all download updates.
 pub const PROGRESS_EVENT: &str = "download-progress";
@@ -370,11 +370,8 @@ mod tests {
 
     #[test]
     fn parses_progress_lines() {
-        let ev = parse_progress_line(
-            "job-1",
-            "downloading|1024|223779|  0.5%|  64.91KiB/s|00:03",
-        )
-        .expect("valid line");
+        let ev = parse_progress_line("job-1", "downloading|1024|223779|  0.5%|  64.91KiB/s|00:03")
+            .expect("valid line");
         assert_eq!(ev.stage, "downloading");
         assert_eq!(ev.downloaded_bytes, Some(1024));
         assert_eq!(ev.total_bytes, Some(223779));
@@ -443,7 +440,9 @@ mod tests {
             "download failed: {:?}",
             terminal.error
         );
-        let path = terminal.filepath.expect("completed download has a filepath");
+        let path = terminal
+            .filepath
+            .expect("completed download has a filepath");
         assert!(
             std::path::Path::new(&path).is_file(),
             "merged file must exist on disk: {path}"

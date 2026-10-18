@@ -307,6 +307,56 @@ code,
   word-break: break-word;
 }
 
+/* ---- Clipboard chip ---- */
+
+.clipboard-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid rgba(255, 92, 69, 0.35);
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.chip-text {
+  flex: 1;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-action {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.chip-action:hover {
+  background: var(--accent-hover);
+}
+
+.chip-dismiss {
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.chip-dismiss:hover {
+  color: var(--text);
+}
+
 /* ---- Status bar ---- */
 
 .status-bar {

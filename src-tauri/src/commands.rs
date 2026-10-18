@@ -38,9 +38,6 @@ pub fn start_download(
 
 /// Cancel a running download job.
 #[tauri::command]
-pub fn cancel_download(
-    state: State<'_, DownloadManager>,
-    job_id: String,
-) -> Result<(), String> {
+pub fn cancel_download(state: State<'_, DownloadManager>, job_id: String) -> Result<(), String> {
     state.cancel(&job_id)
 }

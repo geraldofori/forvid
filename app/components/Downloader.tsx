@@ -10,6 +10,7 @@ import {
   type Resolution,
   type VideoInfo,
 } from "@/lib/tauri";
+import ClipboardChip from "./ClipboardChip";
 
 type JobState =
   | { phase: "idle" }
@@ -133,6 +134,8 @@ export default function Downloader() {
         <h1>Forvid</h1>
         <p>Paste a link. Pick a quality. Get the video.</p>
       </header>
+
+      {job.phase === "idle" && <ClipboardChip onUse={setUrl} />}
 
       <input
         className="url-input"
