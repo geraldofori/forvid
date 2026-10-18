@@ -96,6 +96,86 @@ pub fn probe_version(binary: &Path, args: &[&str]) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// Reject anything that is not an http(s) URL before it reaches a process.
+/// URLs are always passed to yt-dlp as an argument array entry (never
+/// through a shell), so this is defense-in-depth rather than injection
+/// prevention.
+fn validate_url(url: &str) -> Result<(), String> {
+    let trimmed = url.trim();
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        Ok(())
+    } else {
+        Err("URL must start with http:// or https://".to_string())
+    }
+}
+
+/// Last non-empty stderr lines, for surfacing yt-dlp failures to the UI.
+fn stderr_tail(output: &std::process::Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let tail: Vec<&str> = stderr.lines().filter(|l| !l.trim().is_empty()).collect();
+    let start = tail.len().saturating_sub(6);
+    tail[start..].join("\n")
+}
+
+/// Fetch metadata for a video URL without downloading it.
+///
+/// Uses `yt-dlp -j` (--dump-json), which prints the full info JSON and
+/// implies --simulate. Playlists are rejected in v1 (`--no-playlist`).
+pub fn fetch_metadata(url: &str) -> Result<crate::models::VideoInfo, String> {
+    let url = url.trim();
+    validate_url(url)?;
+
+    let bins = Binaries::resolve()?;
+    let output = Command::new(&bins.ytdlp)
+        .args(["-j", "--no-playlist", "--no-warnings", url])
+        .env("PATH", bins.child_path())
+        .output()
+        .map_err(|e| format!("failed to spawn yt-dlp: {e}"))?;
+
+    if !output.status.success() {
+        return Err(format!("yt-dlp failed:\n{}", stderr_tail(&output)));
+    }
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|e| format!("failed to parse yt-dlp metadata: {e}"))?;
+    parse_video_info(&json)
+}
+
+/// Reduce yt-dlp's info JSON to the fields the UI uses.
+fn parse_video_info(v: &serde_json::Value) -> Result<crate::models::VideoInfo, String> {
+    let str_field = |key: &str| v.get(key).and_then(|x| x.as_str()).map(str::to_owned);
+
+    let id = str_field("id").ok_or("yt-dlp returned metadata without an id")?;
+    let title = str_field("title").unwrap_or_else(|| "Unknown title".to_string());
+
+    // Heights of formats that actually contain a video stream, deduped.
+    let mut heights: Vec<u32> = v
+        .get("formats")
+        .and_then(|f| f.as_array())
+        .map(|formats| {
+            formats
+                .iter()
+                .filter(|f| f.get("vcodec").and_then(|c| c.as_str()) != Some("none"))
+                .filter_map(|f| f.get("height").and_then(|h| h.as_u64()))
+                .map(|h| h as u32)
+                .collect()
+        })
+        .unwrap_or_default();
+    heights.sort_unstable_by(|a, b| b.cmp(a));
+    heights.dedup();
+
+    Ok(crate::models::VideoInfo {
+        id,
+        title,
+        thumbnail: str_field("thumbnail"),
+        duration_seconds: v.get("duration").and_then(|d| d.as_f64()),
+        duration_string: str_field("duration_string"),
+        uploader: str_field("uploader").or_else(|| str_field("channel")),
+        webpage_url: str_field("webpage_url").unwrap_or_default(),
+        available_heights: heights,
+    })
+}
+
 /// Collect the full environment report for the frontend.
 pub fn environment_status() -> Result<crate::models::EnvironmentStatus, String> {
     let bins = Binaries::resolve()?;
@@ -157,5 +237,51 @@ mod tests {
         let status = environment_status().expect("environment must resolve");
         assert_eq!(status.ytdlp_version.is_some(), true);
         assert_eq!(status.ffmpeg_version.is_some(), true);
+    }
+
+    #[test]
+    fn rejects_non_http_urls() {
+        assert!(validate_url("file:///etc/passwd").is_err());
+        assert!(validate_url("ftp://example.com/x").is_err());
+        assert!(validate_url("not a url").is_err());
+        assert!(validate_url("https://www.youtube.com/watch?v=abc").is_ok());
+    }
+
+    #[test]
+    fn parses_video_info_from_ytdlp_json() {
+        let json = serde_json::json!({
+            "id": "jNQXAC9IVRw",
+            "title": "Me at the zoo",
+            "thumbnail": "https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg",
+            "duration": 19.0,
+            "duration_string": "19",
+            "uploader": "jawed",
+            "webpage_url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+            "formats": [
+                {"format_id": "18", "height": 360, "vcodec": "avc1.42001E"},
+                {"format_id": "394", "height": 144, "vcodec": "av01.0.00M.10"},
+                {"format_id": "233", "vcodec": "none", "acodec": "mp4a.40.2"},
+                {"format_id": "17", "height": 144, "vcodec": "mp4v.20.3"},
+                {"format_id": "136", "height": 720, "vcodec": "avc1.4d401f"}
+            ]
+        });
+
+        let info = parse_video_info(&json).expect("fixture must parse");
+        assert_eq!(info.id, "jNQXAC9IVRw");
+        assert_eq!(info.title, "Me at the zoo");
+        assert_eq!(info.uploader.as_deref(), Some("jawed"));
+        // Audio-only format excluded, duplicate 144 deduped, descending order
+        assert_eq!(info.available_heights, vec![720, 360, 144]);
+    }
+
+    /// Live smoke test against YouTube. Ignored by default; run with:
+    /// cargo test -- --ignored
+    #[test]
+    #[ignore = "hits the network; run explicitly"]
+    fn fetches_metadata_live() {
+        let info = fetch_metadata("https://www.youtube.com/watch?v=jNQXAC9IVRw")
+            .expect("live metadata fetch must succeed");
+        assert_eq!(info.id, "jNQXAC9IVRw");
+        assert!(!info.available_heights.is_empty());
     }
 }

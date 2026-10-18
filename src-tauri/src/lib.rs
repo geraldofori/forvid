@@ -15,7 +15,10 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::check_environment])
+        .invoke_handler(tauri::generate_handler![
+            commands::check_environment,
+            commands::fetch_metadata
+        ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }
