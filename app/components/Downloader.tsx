@@ -10,7 +10,27 @@ import {
   type Resolution,
   type VideoInfo,
 } from "@/lib/tauri";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import ClipboardChip from "./ClipboardChip";
+import MetadataCard from "./MetadataCard";
+
+/** Best-effort native notification; silently skipped if permission is denied. */
+async function notifyCompletion(title: string, body: string) {
+  try {
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      granted = (await requestPermission()) === "granted";
+    }
+    if (granted) sendNotification({ title, body });
+  } catch {
+    // Notifications unavailable in this context.
+  }
+}
 
 type JobState =
   | { phase: "idle" }
@@ -32,6 +52,12 @@ export default function Downloader() {
   const jobIdRef = useRef<string | null>(null);
   // Guards against out-of-order metadata responses when the URL changes fast.
   const metaSeq = useRef(0);
+  // Mirror of `meta` for the progress listener (registered once, so it
+  // would otherwise close over stale state).
+  const metaRef = useRef<VideoInfo | null>(null);
+  useEffect(() => {
+    metaRef.current = meta;
+  }, [meta]);
 
   // Single progress listener for the app's lifetime; events for jobs that
   // are not the current one (e.g. a stale job id) are ignored.
@@ -42,6 +68,10 @@ export default function Downloader() {
         jobIdRef.current = null;
         if (event.stage === "completed") {
           setJob({ phase: "completed", filepath: event.filepath ?? "" });
+          notifyCompletion(
+            "Download complete",
+            metaRef.current?.title ?? event.filepath ?? "",
+          );
         } else if (event.stage === "cancelled") {
           setJob({ phase: "cancelled" });
         } else {
@@ -149,8 +179,8 @@ export default function Downloader() {
 
       {metaLoading && <p className="hint">Fetching video info…</p>}
       {metaError && <p className="error-text">{metaError}</p>}
-      {meta && !downloading && job.phase === "idle" && (
-        <p className="hint ready">Ready: {meta.title}</p>
+      {meta && (job.phase === "idle" || downloading) && (
+        <MetadataCard meta={meta} />
       )}
 
       <label className="field">
@@ -191,9 +221,19 @@ export default function Downloader() {
         <div className="result success">
           <p className="result-title">Download complete</p>
           <code className="filepath">{job.filepath}</code>
-          <button className="btn ghost" onClick={reset}>
-            Download another
-          </button>
+          <div className="result-actions">
+            {job.filepath && (
+              <button
+                className="btn ghost"
+                onClick={() => revealItemInDir(job.filepath).catch(() => {})}
+              >
+                Reveal in Finder
+              </button>
+            )}
+            <button className="btn ghost" onClick={reset}>
+              Download another
+            </button>
+          </div>
         </div>
       )}
 
