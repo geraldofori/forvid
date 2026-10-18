@@ -55,9 +55,13 @@ export function fetchMetadata(url: string) {
   return invoke<VideoInfo>("fetch_metadata", { url });
 }
 
-export function startDownload(url: string, resolution: Resolution) {
+export function startDownload(
+  url: string,
+  resolution: Resolution,
+  outputDir: string | null,
+) {
   return invoke<string>("start_download", {
-    request: { url, resolution, outputDir: null },
+    request: { url, resolution, outputDir },
   });
 }
 

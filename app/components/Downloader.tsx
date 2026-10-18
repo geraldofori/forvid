@@ -11,6 +11,7 @@ import {
   type VideoInfo,
 } from "@/lib/tauri";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   isPermissionGranted,
   requestPermission,
@@ -47,6 +48,7 @@ export default function Downloader() {
   const [metaError, setMetaError] = useState<string | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [resolution, setResolution] = useState("best");
+  const [outputDir, setOutputDir] = useState<string | null>(null);
   const [job, setJob] = useState<JobState>({ phase: "idle" });
 
   const jobIdRef = useRef<string | null>(null);
@@ -119,7 +121,7 @@ export default function Downloader() {
           ? { kind: "audioMp3" }
           : { kind: "height", height: Number(resolution) };
     try {
-      const id = await startDownload(trimmed, resolutionArg);
+      const id = await startDownload(trimmed, resolutionArg, outputDir);
       jobIdRef.current = id;
       setJob({
         phase: "downloading",
@@ -155,6 +157,20 @@ export default function Downloader() {
     setMetaError(null);
     setUrl("");
   };
+
+  const pickFolder = async () => {
+    try {
+      const selected = await openDialog({ directory: true, multiple: false });
+      if (typeof selected === "string") setOutputDir(selected);
+    } catch {
+      // Dialog cancelled or unavailable; keep current directory.
+    }
+  };
+
+  // "/Users/gerald/Downloads" -> "~/Downloads" for display
+  const displayDir = outputDir
+    ? outputDir.replace(/^\/Users\/[^/]+/, "~")
+    : "~/Downloads";
 
   const downloading = job.phase === "downloading";
 
@@ -200,6 +216,20 @@ export default function Downloader() {
           <option value="audioMp3">Audio only · MP3</option>
         </select>
       </label>
+
+      <div className="save-to">
+        <span className="field-label">Save to</span>
+        <code className="save-path" title={outputDir ?? undefined}>
+          {displayDir}
+        </code>
+        <button
+          className="save-change"
+          onClick={pickFolder}
+          disabled={downloading}
+        >
+          Change
+        </button>
+      </div>
 
       {downloading ? (
         <button className="btn danger" onClick={handleCancel}>

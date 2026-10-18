@@ -156,6 +156,43 @@ code,
   color: var(--text);
 }
 
+/* ---- Save-to row ---- */
+
+.save-to {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.save-path {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.save-change {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.save-change:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.save-change:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ---- Buttons ---- */
 
 .btn {
