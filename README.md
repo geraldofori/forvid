@@ -1,36 +1,175 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Forvid
 
-## Getting Started
+A lightweight native macOS app for downloading videos from the web — powered
+by [yt-dlp](https://github.com/yt-dlp/yt-dlp), wrapped in a clean desktop UI.
 
-First, run the development server:
+Forvid gives you the power of yt-dlp without the command line: paste a link,
+pick a quality, and watch it download. No browser extensions, no ads, no
+sketchy downloader websites — just a small native app (~12 MB) that talks to
+the yt-dlp install already on your Mac.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## What it does
+
+- **Paste a link, get the video.** Forvid fetches the video's title, channel,
+  duration and thumbnail before you download anything, so you always know
+  what you're getting.
+- **Clipboard aware.** Copy a link anywhere on your Mac, switch back to
+  Forvid, and it offers to use it — one click, no pasting.
+- **Real quality choice.** The quality dropdown is built from the resolutions
+  the video *actually* has (no offering 4K for a 720p upload), plus
+  **Audio only (MP3)** for music and podcasts.
+- **Honest progress.** Percent, download speed, ETA, and bytes downloaded vs
+  total — streamed live from yt-dlp. Cancel any download mid-flight.
+- **You choose where files go.** Downloads land in `~/Downloads` by default;
+  change the destination with the native macOS folder picker.
+- **Works with your system.** Native notification when a download completes,
+  and **Reveal in Finder** to jump straight to the file.
+
+## Capabilities at a glance
+
+| | |
+|---|---|
+| Sites supported | Everything yt-dlp supports (YouTube and [thousands more](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)) |
+| Video quality | Best available, or capped at any resolution the video offers (up to 4K+) |
+| Audio | MP3 extraction via ffmpeg |
+| Container | Merges high-quality video+audio into MP4 |
+| Playlists | Single videos only for now — playlists are on the roadmap |
+| Concurrency | One download at a time (a queue is planned) |
+| Size | ~12 MB installed (Tauri, not Electron) |
+
+## Requirements
+
+- macOS (Apple Silicon or Intel)
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [ffmpeg](https://ffmpeg.org)
+  installed. The easiest way is [Homebrew](https://brew.sh):
+
+  ```sh
+  brew install yt-dlp ffmpeg
+  ```
+
+  Forvid finds them automatically (it checks Homebrew's install location
+  directly, so it works even when launched from Finder). ffmpeg is what
+  merges high-quality video and audio into one MP4 file, and
+  [deno](https://deno.land) — installed automatically by Homebrew as a yt-dlp
+  dependency — is what lets yt-dlp handle YouTube's current player changes.
+
+## Installation
+
+### Option 1 — From source (current)
+
+```sh
+# 1. Install Rust, if you don't have it
+curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+
+# 2. Clone and build
+git clone https://github.com/geraldofori/forvid.git
+cd forvid
+npm install
+npm run tauri build
+
+# 3. Install the app
+cp -R src-tauri/target/release/bundle/macos/Forvid.app /Applications
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The built app is at `src-tauri/target/release/bundle/macos/Forvid.app`, and a
+DMG is at `src-tauri/target/release/bundle/dmg/Forvid_0.1.0_aarch64.dmg`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Because Forvid is built ad-hoc signed (no Apple Developer account), the first
+launch may be blocked by Gatekeeper. If that happens: **right-click the app →
+Open → Open**.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Option 2 — Download a release
 
-## Learn More
+Pre-built releases will be published on the
+[Releases](https://github.com/geraldofori/forvid/releases) page.
 
-To learn more about Next.js, take a look at the following resources:
+## Using Forvid
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Copy a video link** anywhere (or paste one directly into the box).
+   If the app notices a link on your clipboard, it offers to fill it in.
+2. **Check the preview** — title, channel, duration and thumbnail appear
+   automatically.
+3. **Pick a quality** — "Best available", a specific resolution, or
+   "Audio only · MP3".
+4. **(Optional) change where it saves** with the *Change* button next to
+   "Save to".
+5. **Hit Download.** Watch the live progress bar. Cancel anytime.
+6. When it's done, **Reveal in Finder** takes you straight to the file.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+> **Why does the progress bar sometimes fill twice?** For high-quality
+> downloads, yt-dlp fetches the video and audio as separate streams and merges
+> them with ffmpeg — one fill per stream. It's normal.
 
-## Deploy on Vercel
+## Troubleshooting
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**"yt-dlp was not found"**
+Install it: `brew install yt-dlp ffmpeg`, then relaunch the app.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Downloads suddenly fail or YouTube errors appear**
+YouTube changes its player regularly, and yt-dlp updates to keep up — an
+outdated yt-dlp is the cause almost every time. Update it:
+
+```sh
+brew upgrade yt-dlp
+```
+
+Your current yt-dlp version is shown in the bar at the bottom of the app.
+
+**"Sign in to confirm you're not a bot"**
+YouTube occasionally rate-limits. Waiting a while and updating yt-dlp usually
+resolves it.
+
+## Development
+
+Built with **Tauri v2** (Rust backend) and **Next.js** (static export
+frontend). The Rust core spawns yt-dlp and parses its documented machine
+interfaces (`--progress-template`, `-j`, `--print after_move:filepath`) —
+never its human-readable output.
+
+```sh
+# Prerequisites: Node.js, Rust (rustup), yt-dlp + ffmpeg via Homebrew
+
+npm install
+
+# Dev mode (hot reload; dev server on port 3100)
+npm run tauri dev
+
+# Rust engine tests (unit + arg-building + progress parsing)
+cd src-tauri && cargo test
+
+# Full end-to-end tests — hits the network, downloads a real video
+cd src-tauri && cargo test -- --ignored
+
+# Production bundle
+npm run tauri build
+```
+
+### Project structure
+
+```
+app/                  Next.js frontend (static export)
+  components/         Downloader, MetadataCard, ClipboardChip, StatusBar
+lib/tauri.ts          Typed wrappers for every Tauri command/event
+src-tauri/src/
+  ytdlp.rs            Binary resolution, metadata fetch, env checks
+  download.rs         Download engine: spawn, progress parse, cancel
+  commands.rs         Tauri command surface
+  models.rs           Types shared with the frontend (serde)
+```
+
+## Roadmap
+
+- [ ] Playlist downloads (save a whole playlist to its own folder)
+- [ ] Download queue (multiple videos, one after another)
+- [ ] Dark/light mode toggle
+- [ ] Subtitle download options
+- [ ] Bundled yt-dlp, so the app works with zero setup
+
+## Acknowledgements
+
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — the downloader that does all
+  the real work
+- [Tauri](https://v2.tauri.app) — the native app shell
+- [Next.js](https://nextjs.org) — the UI
