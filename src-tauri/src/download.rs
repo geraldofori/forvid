@@ -20,8 +20,6 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use tauri::{AppHandle, Emitter};
-
 use crate::models::{DownloadRequest, ProgressEvent, Resolution};
 use crate::ytdlp::{validate_url, Binaries};
 
@@ -43,8 +41,13 @@ pub struct DownloadManager {
 
 impl DownloadManager {
     /// Spawn yt-dlp for `request`, returning the new job id immediately.
-    /// Progress arrives via `PROGRESS_EVENT`.
-    pub fn start(&self, app: AppHandle, request: DownloadRequest) -> Result<String, String> {
+    /// Progress events are delivered to `emit` (the command layer wraps
+    /// this in a Tauri event emit; tests can collect them directly).
+    pub fn start(
+        &self,
+        request: DownloadRequest,
+        emit: impl Fn(ProgressEvent) + Send + Sync + 'static,
+    ) -> Result<String, String> {
         if !self.jobs.lock().unwrap().is_empty() {
             return Err("A download is already in progress.".to_string());
         }
@@ -73,7 +76,7 @@ impl DownloadManager {
 
         let jobs = self.jobs.clone();
         let job_id_for_task = job_id.clone();
-        std::thread::spawn(move || supervise(app, job_id_for_task, control, jobs));
+        std::thread::spawn(move || supervise(emit, job_id_for_task, control, jobs));
 
         Ok(job_id)
     }
@@ -98,7 +101,7 @@ impl DownloadManager {
 /// Read the child pipes, wait for exit, emit the terminal event, and free
 /// the job slot. Runs on its own thread for the lifetime of one download.
 fn supervise(
-    app: AppHandle,
+    emit: impl Fn(ProgressEvent) + Send + Sync + 'static,
     job_id: String,
     control: Arc<JobControl>,
     jobs: Arc<Mutex<HashMap<String, Arc<JobControl>>>>,
@@ -125,16 +128,17 @@ fn supervise(
     };
 
     // stdout parser: progress lines + the final after_move filepath line.
+    let emit = Arc::new(emit);
     let stdout_handle = {
-        let app = app.clone();
         let job_id = job_id.clone();
+        let emit = emit.clone();
         std::thread::spawn(move || {
             let mut filepath: Option<String> = None;
             if let Some(stdout) = stdout {
                 for line in BufReader::new(stdout).lines().map_while(Result::ok) {
                     if let Some(rest) = line.strip_prefix("YTDLP|") {
                         if let Some(event) = parse_progress_line(&job_id, rest) {
-                            app.emit(PROGRESS_EVENT, &event).ok();
+                            emit(event);
                         }
                     } else if !line.trim().is_empty() {
                         // --print after_move:filepath output
@@ -175,7 +179,7 @@ fn supervise(
         let stderr = stderr_buf.lock().unwrap().clone();
         ProgressEvent::terminal(&job_id, "error", None, Some(stderr_tail(&stderr)))
     };
-    app.emit(PROGRESS_EVENT, &terminal).ok();
+    emit(terminal);
 }
 
 impl ProgressEvent {
@@ -390,5 +394,59 @@ mod tests {
     #[test]
     fn rejects_malformed_lines() {
         assert!(parse_progress_line("job-1", "downloading|1|2").is_none());
+    }
+
+    /// Full end-to-end gate: downloads a real video through the engine,
+    /// exercising spawn, progress parsing, ffmpeg merge, and the final
+    /// after_move filepath. Ignored by default; run with:
+    /// cargo test -- --ignored
+    #[test]
+    #[ignore = "hits the network and downloads a file; run explicitly"]
+    fn downloads_a_real_video_end_to_end() {
+        use std::sync::mpsc;
+
+        let dir = std::env::temp_dir().join("forvid-e2e");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let manager = DownloadManager::default();
+        let (tx, rx) = mpsc::channel::<ProgressEvent>();
+        let job_id = manager
+            .start(
+                DownloadRequest {
+                    url: "https://www.youtube.com/watch?v=jNQXAC9IVRw".to_string(),
+                    resolution: Resolution::Height { height: 240 },
+                    output_dir: Some(dir.to_string_lossy().into_owned()),
+                },
+                move |e| {
+                    tx.send(e).ok();
+                },
+            )
+            .expect("download must start");
+        assert!(job_id.starts_with("job-"));
+
+        let deadline = std::time::Instant::now() + Duration::from_secs(120);
+        let terminal = loop {
+            let ev = rx
+                .recv_timeout(Duration::from_secs(10))
+                .expect("events must keep arriving");
+            if matches!(ev.stage.as_str(), "completed" | "cancelled" | "error") {
+                break ev;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "download exceeded 120s deadline"
+            );
+        };
+
+        assert_eq!(
+            terminal.stage, "completed",
+            "download failed: {:?}",
+            terminal.error
+        );
+        let path = terminal.filepath.expect("completed download has a filepath");
+        assert!(
+            std::path::Path::new(&path).is_file(),
+            "merged file must exist on disk: {path}"
+        );
     }
 }

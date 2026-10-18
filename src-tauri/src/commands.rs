@@ -30,7 +30,10 @@ pub fn start_download(
     state: State<'_, DownloadManager>,
     request: DownloadRequest,
 ) -> Result<String, String> {
-    state.start(app, request)
+    state.start(request, move |event| {
+        use tauri::Emitter;
+        app.emit(crate::download::PROGRESS_EVENT, &event).ok();
+    })
 }
 
 /// Cancel a running download job.
