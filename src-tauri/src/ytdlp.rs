@@ -117,17 +117,19 @@ fn stderr_tail(output: &std::process::Output) -> String {
     tail[start..].join("\n")
 }
 
-/// Fetch metadata for a video URL without downloading it.
+/// Fetch metadata for a URL without downloading it.
 ///
-/// Uses `yt-dlp -j` (--dump-json), which prints the full info JSON and
-/// implies --simulate. Playlists are rejected in v1 (`--no-playlist`).
-pub fn fetch_metadata(url: &str) -> Result<crate::models::VideoInfo, String> {
+/// Uses `yt-dlp -J --flat-playlist`: one JSON document for the whole URL.
+/// Single videos are fully extracted (formats included, so quality options
+/// are real); playlist URLs return their entries without per-video
+/// extraction, which keeps even large playlists fast.
+pub fn fetch_metadata(url: &str) -> Result<crate::models::MediaInfo, String> {
     let url = url.trim();
     validate_url(url)?;
 
     let bins = Binaries::resolve()?;
     let output = Command::new(&bins.ytdlp)
-        .args(["-j", "--no-playlist", "--no-warnings", url])
+        .args(["-J", "--flat-playlist", "--no-warnings", url])
         .env("PATH", bins.child_path())
         .output()
         .map_err(|e| format!("failed to spawn yt-dlp: {e}"))?;
@@ -138,7 +140,45 @@ pub fn fetch_metadata(url: &str) -> Result<crate::models::VideoInfo, String> {
 
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)
         .map_err(|e| format!("failed to parse yt-dlp metadata: {e}"))?;
-    parse_video_info(&json)
+
+    if json.get("_type").and_then(|t| t.as_str()) == Some("playlist") {
+        parse_playlist_info(&json).map(crate::models::MediaInfo::Playlist)
+    } else {
+        parse_video_info(&json).map(crate::models::MediaInfo::Video)
+    }
+}
+
+/// Reduce yt-dlp's flat-playlist JSON to the fields the UI uses.
+fn parse_playlist_info(v: &serde_json::Value) -> Result<crate::models::PlaylistInfo, String> {
+    let str_field = |key: &str| v.get(key).and_then(|x| x.as_str()).map(str::to_owned);
+
+    let entries: Vec<crate::models::PlaylistEntry> = v
+        .get("entries")
+        .and_then(|e| e.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|e| {
+                    let field = |key: &str| e.get(key).and_then(|x| x.as_str()).map(str::to_owned);
+                    crate::models::PlaylistEntry {
+                        id: field("id").unwrap_or_default(),
+                        title: field("title").unwrap_or_else(|| "Unknown title".to_string()),
+                        duration_seconds: e.get("duration").and_then(|d| d.as_f64()),
+                        url: field("url").or_else(|| field("webpage_url")),
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let video_count = entries.len();
+    Ok(crate::models::PlaylistInfo {
+        id: str_field("id").unwrap_or_default(),
+        title: str_field("title").unwrap_or_else(|| "Untitled playlist".to_string()),
+        uploader: str_field("uploader").or_else(|| str_field("channel")),
+        thumbnail: str_field("thumbnail"),
+        video_count,
+        entries,
+    })
 }
 
 /// Reduce yt-dlp's info JSON to the fields the UI uses.
@@ -248,6 +288,35 @@ mod tests {
     }
 
     #[test]
+    fn parses_playlist_info_from_flat_json() {
+        let json = serde_json::json!({
+            "_type": "playlist",
+            "id": "PLabc123",
+            "title": "My Playlist",
+            "uploader": "by Some Channel",
+            "thumbnail": null,
+            "entries": [
+                {"_type": "url", "id": "kPa7bsKwL-c", "title": "Song One",
+                 "url": "https://www.youtube.com/watch?v=kPa7bsKwL-c", "duration": 210.0},
+                {"_type": "url", "id": "abc123def45", "title": "Song Two",
+                 "url": "https://www.youtube.com/watch?v=abc123def45"}
+            ]
+        });
+
+        let info = parse_playlist_info(&json).expect("fixture must parse");
+        assert_eq!(info.id, "PLabc123");
+        assert_eq!(info.title, "My Playlist");
+        assert_eq!(info.uploader.as_deref(), Some("by Some Channel"));
+        assert_eq!(info.video_count, 2);
+        assert_eq!(info.entries[0].duration_seconds, Some(210.0));
+        assert_eq!(
+            info.entries[0].url.as_deref(),
+            Some("https://www.youtube.com/watch?v=kPa7bsKwL-c")
+        );
+        assert_eq!(info.entries[1].duration_seconds, None);
+    }
+
+    #[test]
     fn parses_video_info_from_ytdlp_json() {
         let json = serde_json::json!({
             "id": "jNQXAC9IVRw",
@@ -281,7 +350,25 @@ mod tests {
     fn fetches_metadata_live() {
         let info = fetch_metadata("https://www.youtube.com/watch?v=jNQXAC9IVRw")
             .expect("live metadata fetch must succeed");
-        assert_eq!(info.id, "jNQXAC9IVRw");
-        assert!(!info.available_heights.is_empty());
+        let crate::models::MediaInfo::Video(video) = info else {
+            panic!("a watch URL must resolve to a video");
+        };
+        assert_eq!(video.id, "jNQXAC9IVRw");
+        assert!(!video.available_heights.is_empty());
+    }
+
+    /// Live playlist smoke test. Ignored by default.
+    #[test]
+    #[ignore = "hits the network; run explicitly"]
+    fn fetches_playlist_live() {
+        let info = fetch_metadata(
+            "https://www.youtube.com/playlist?list=PLMC9KNkIncKtPzgY-5rmhvj7fax8fdxoj",
+        )
+        .expect("live playlist fetch must succeed");
+        let crate::models::MediaInfo::Playlist(playlist) = info else {
+            panic!("a playlist URL must resolve to a playlist");
+        };
+        assert!(playlist.video_count > 1);
+        assert!(!playlist.title.is_empty());
     }
 }

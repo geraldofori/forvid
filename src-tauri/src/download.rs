@@ -199,6 +199,8 @@ impl ProgressEvent {
             total_bytes: None,
             filepath,
             error,
+            playlist_index: None,
+            playlist_count: None,
         }
     }
 }
@@ -206,7 +208,9 @@ impl ProgressEvent {
 /// Parse one `YTDLP|`-prefixed progress-template line.
 fn parse_progress_line(job_id: &str, rest: &str) -> Option<ProgressEvent> {
     let parts: Vec<&str> = rest.split('|').collect();
-    if parts.len() != 6 {
+    // 6 core fields, plus playlist_index/playlist_count when the template
+    // emits them (always appended; NA for single videos).
+    if parts.len() != 8 {
         return None;
     }
     let status = parts[0].trim();
@@ -226,6 +230,8 @@ fn parse_progress_line(job_id: &str, rest: &str) -> Option<ProgressEvent> {
         total_bytes: opt_u64(parts[2]),
         filepath: None,
         error: None,
+        playlist_index: opt_u32(parts[6]),
+        playlist_count: opt_u32(parts[7]),
     })
 }
 
@@ -239,6 +245,15 @@ fn opt_str(s: &str) -> Option<String> {
 }
 
 fn opt_u64(s: &str) -> Option<u64> {
+    let t = s.trim();
+    if t.is_empty() || t == "NA" {
+        None
+    } else {
+        t.parse().ok()
+    }
+}
+
+fn opt_u32(s: &str) -> Option<u32> {
     let t = s.trim();
     if t.is_empty() || t == "NA" {
         None
@@ -262,8 +277,15 @@ fn build_args(bins: &Binaries, request: &DownloadRequest) -> Vec<String> {
         .or_else(|| std::env::var("HOME").ok().map(|h| format!("{h}/Downloads")))
         .unwrap_or_else(|| ".".to_string());
 
+    // Playlist jobs drop --no-playlist and save into a subfolder named
+    // after the playlist (documented output-template field playlist_title).
+    let output_template = if request.playlist {
+        "%(playlist_title)s/%(title)s.%(ext)s"
+    } else {
+        "%(title)s.%(ext)s"
+    };
+
     let mut args = vec![
-        "--no-playlist".to_string(),
         "--newline".to_string(),
         // --print implies --quiet, which suppresses progress; re-enable it.
         "--progress".to_string(),
@@ -272,7 +294,8 @@ fn build_args(bins: &Binaries, request: &DownloadRequest) -> Vec<String> {
         "--progress-template".to_string(),
         "download:YTDLP|%(progress.status)s|%(progress.downloaded_bytes)s|\
          %(progress.total_bytes,progress.total_bytes_estimate)s|\
-         %(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s"
+         %(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|\
+         %(info.playlist_index)s|%(info.n_entries)s"
             .to_string(),
         "--print".to_string(),
         "after_move:filepath".to_string(),
@@ -281,8 +304,12 @@ fn build_args(bins: &Binaries, request: &DownloadRequest) -> Vec<String> {
         "-P".to_string(),
         output_dir,
         "-o".to_string(),
-        "%(title)s.%(ext)s".to_string(),
+        output_template.to_string(),
     ];
+
+    if !request.playlist {
+        args.push("--no-playlist".to_string());
+    }
 
     if let Some(dir) = &bins.ffmpeg_dir {
         args.push("--ffmpeg-location".to_string());
@@ -327,6 +354,7 @@ mod tests {
             url: "https://www.youtube.com/watch?v=jNQXAC9IVRw".to_string(),
             resolution,
             output_dir: Some("/tmp/forvid".to_string()),
+            playlist: false,
         }
     }
 
@@ -370,19 +398,35 @@ mod tests {
 
     #[test]
     fn parses_progress_lines() {
-        let ev = parse_progress_line("job-1", "downloading|1024|223779|  0.5%|  64.91KiB/s|00:03")
-            .expect("valid line");
+        let ev = parse_progress_line(
+            "job-1",
+            "downloading|1024|223779|  0.5%|  64.91KiB/s|00:03|NA|NA",
+        )
+        .expect("valid line");
         assert_eq!(ev.stage, "downloading");
         assert_eq!(ev.downloaded_bytes, Some(1024));
         assert_eq!(ev.total_bytes, Some(223779));
         assert_eq!(ev.percent.as_deref(), Some("0.5%"));
         assert_eq!(ev.speed.as_deref(), Some("64.91KiB/s"));
         assert_eq!(ev.eta.as_deref(), Some("00:03"));
+        assert_eq!(ev.playlist_index, None);
+        assert_eq!(ev.playlist_count, None);
+    }
+
+    #[test]
+    fn parses_playlist_progress() {
+        let ev = parse_progress_line(
+            "job-1",
+            "downloading|1024|223779| 12.0%|  1.0MiB/s|00:09|3|12",
+        )
+        .expect("valid playlist line");
+        assert_eq!(ev.playlist_index, Some(3));
+        assert_eq!(ev.playlist_count, Some(12));
     }
 
     #[test]
     fn stream_finished_is_not_completion() {
-        let ev = parse_progress_line("job-1", "finished|1|1|100.0%|NA|NA").unwrap();
+        let ev = parse_progress_line("job-1", "finished|1|1|100.0%|NA|NA|NA|NA").unwrap();
         assert_eq!(ev.stage, "stream-finished");
         assert_eq!(ev.speed, None);
         assert_eq!(ev.eta, None);
@@ -391,6 +435,24 @@ mod tests {
     #[test]
     fn rejects_malformed_lines() {
         assert!(parse_progress_line("job-1", "downloading|1|2").is_none());
+    }
+
+    #[test]
+    fn playlist_mode_drops_no_playlist_and_uses_folder_template() {
+        let mut req = request(Resolution::Height { height: 720 });
+        req.playlist = true;
+        let args = build_args(&test_bins(), &req);
+        assert!(!args.contains(&"--no-playlist".to_string()));
+        let pos = args.iter().position(|a| a == "-o").expect("-o present");
+        assert_eq!(args[pos + 1], "%(playlist_title)s/%(title)s.%(ext)s");
+    }
+
+    #[test]
+    fn single_mode_forces_no_playlist() {
+        let args = build_args(&test_bins(), &request(Resolution::Best));
+        assert!(args.contains(&"--no-playlist".to_string()));
+        let pos = args.iter().position(|a| a == "-o").expect("-o present");
+        assert_eq!(args[pos + 1], "%(title)s.%(ext)s");
     }
 
     /// Full end-to-end gate: downloads a real video through the engine,
@@ -413,6 +475,7 @@ mod tests {
                     url: "https://www.youtube.com/watch?v=jNQXAC9IVRw".to_string(),
                     resolution: Resolution::Height { height: 240 },
                     output_dir: Some(dir.to_string_lossy().into_owned()),
+                    playlist: false,
                 },
                 move |e| {
                     tx.send(e).ok();

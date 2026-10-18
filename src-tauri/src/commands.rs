@@ -3,7 +3,7 @@
 use tauri::{AppHandle, State};
 
 use crate::download::DownloadManager;
-use crate::models::{DownloadRequest, EnvironmentStatus, VideoInfo};
+use crate::models::{DownloadRequest, EnvironmentStatus, MediaInfo};
 
 /// Report which external binaries were found and their versions.
 #[tauri::command]
@@ -11,10 +11,10 @@ pub fn check_environment() -> Result<EnvironmentStatus, String> {
     crate::ytdlp::environment_status()
 }
 
-/// Fetch video metadata (title, thumbnail, duration, available heights)
-/// for a URL without downloading anything.
+/// Fetch metadata for a URL without downloading anything. Resolves to a
+/// single video (with real quality options) or a whole playlist.
 #[tauri::command]
-pub async fn fetch_metadata(url: String) -> Result<VideoInfo, String> {
+pub async fn fetch_metadata(url: String) -> Result<MediaInfo, String> {
     // Blocking yt-dlp call: run off the async runtime's main threads.
     tauri::async_runtime::spawn_blocking(move || crate::ytdlp::fetch_metadata(&url))
         .await

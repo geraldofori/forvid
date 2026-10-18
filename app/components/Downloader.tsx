@@ -6,9 +6,9 @@ import {
   fetchMetadata,
   onDownloadProgress,
   startDownload,
+  type MediaInfo,
   type ProgressEvent,
   type Resolution,
-  type VideoInfo,
 } from "@/lib/tauri";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -19,6 +19,7 @@ import {
 } from "@tauri-apps/plugin-notification";
 import ClipboardChip from "./ClipboardChip";
 import MetadataCard from "./MetadataCard";
+import PlaylistCard from "./PlaylistCard";
 
 /** Best-effort native notification; silently skipped if permission is denied. */
 async function notifyCompletion(title: string, body: string) {
@@ -44,7 +45,7 @@ const TERMINAL_STAGES = new Set(["completed", "cancelled", "error"]);
 
 export default function Downloader() {
   const [url, setUrl] = useState("");
-  const [meta, setMeta] = useState<VideoInfo | null>(null);
+  const [meta, setMeta] = useState<MediaInfo | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [resolution, setResolution] = useState("best");
@@ -56,7 +57,7 @@ export default function Downloader() {
   const metaSeq = useRef(0);
   // Mirror of `meta` for the progress listener (registered once, so it
   // would otherwise close over stale state).
-  const metaRef = useRef<VideoInfo | null>(null);
+  const metaRef = useRef<MediaInfo | null>(null);
   useEffect(() => {
     metaRef.current = meta;
   }, [meta]);
@@ -104,13 +105,19 @@ export default function Downloader() {
         const info = await fetchMetadata(trimmed);
         if (seq === metaSeq.current) {
           setMeta(info);
-          // Default to a medium quality, not the best: the largest height
-          // at or under 720p, else the smallest available, else Best.
-          // (availableHeights is sorted descending.)
-          const heights = info.availableHeights;
-          const medium =
-            heights.find((h) => h <= 720) ?? heights[heights.length - 1];
-          setResolution(medium ? String(medium) : "best");
+          if (info.type === "video") {
+            // Default to a medium quality, not the best: the largest height
+            // at or under 720p, else the smallest available, else Best.
+            // (availableHeights is sorted descending.)
+            const heights = info.availableHeights;
+            const medium =
+              heights.find((h) => h <= 720) ?? heights[heights.length - 1];
+            setResolution(medium ? String(medium) : "best");
+          } else {
+            // Playlists: per-video heights aren't known until download;
+            // offer the static ladder, defaulting to 720p.
+            setResolution("720");
+          }
         }
       } catch (e) {
         if (seq === metaSeq.current) setMetaError(String(e));
@@ -131,7 +138,12 @@ export default function Downloader() {
           ? { kind: "audioMp3" }
           : { kind: "height", height: Number(resolution) };
     try {
-      const id = await startDownload(trimmed, resolutionArg, outputDir);
+      const id = await startDownload(
+        trimmed,
+        resolutionArg,
+        outputDir,
+        meta?.type === "playlist",
+      );
       jobIdRef.current = id;
       setJob({
         phase: "downloading",
@@ -145,6 +157,8 @@ export default function Downloader() {
           totalBytes: null,
           filepath: null,
           error: null,
+          playlistIndex: null,
+          playlistCount: null,
         },
       });
     } catch (e) {
@@ -205,8 +219,11 @@ export default function Downloader() {
 
       {metaLoading && <p className="hint">Fetching video info…</p>}
       {metaError && <p className="error-text">{metaError}</p>}
-      {meta && (job.phase === "idle" || downloading) && (
+      {meta?.type === "video" && (job.phase === "idle" || downloading) && (
         <MetadataCard meta={meta} />
+      )}
+      {meta?.type === "playlist" && (job.phase === "idle" || downloading) && (
+        <PlaylistCard playlist={meta} saveTo={displayDir} />
       )}
 
       <label className="field">
@@ -218,11 +235,20 @@ export default function Downloader() {
           disabled={!meta || downloading}
         >
           <option value="best">Best available</option>
-          {meta?.availableHeights.map((h) => (
-            <option key={h} value={String(h)}>
-              {h}p
-            </option>
-          ))}
+          {meta?.type === "video"
+            ? meta.availableHeights.map((h) => (
+                <option key={h} value={String(h)}>
+                  {h}p
+                </option>
+              ))
+            : // Playlists: per-video heights are unknown until download, so
+              // offer the static ladder; yt-dlp picks each video's best
+              // format at or under the chosen resolution.
+              [2160, 1440, 1080, 720, 480, 360].map((h) => (
+                <option key={h} value={String(h)}>
+                  {h}p
+                </option>
+              ))}
           <option value="audioMp3">Audio only · MP3</option>
         </select>
       </label>
@@ -251,7 +277,9 @@ export default function Downloader() {
           onClick={handleDownload}
           disabled={!meta || metaLoading}
         >
-          Download
+          {meta?.type === "playlist"
+            ? `Download playlist (${meta.videoCount} videos)`
+            : "Download"}
         </button>
       )}
 
@@ -327,6 +355,11 @@ function ProgressView({ event }: { event: ProgressEvent }) {
   const merging = event.stage === "stream-finished";
   return (
     <div className="progress">
+      {event.playlistCount != null && event.playlistIndex != null && (
+        <p className="playlist-position">
+          Video {event.playlistIndex} of {event.playlistCount}
+        </p>
+      )}
       <div className="progress-track">
         <div className="progress-fill" style={{ width: `${pct}%` }} />
       </div>

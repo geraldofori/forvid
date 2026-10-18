@@ -23,6 +23,27 @@ export interface VideoInfo {
   availableHeights: number[];
 }
 
+export interface PlaylistEntry {
+  id: string;
+  title: string;
+  durationSeconds: number | null;
+  url: string | null;
+}
+
+export interface PlaylistInfo {
+  id: string;
+  title: string;
+  uploader: string | null;
+  thumbnail: string | null;
+  videoCount: number;
+  entries: PlaylistEntry[];
+}
+
+/** What a URL points at: a single video or a whole playlist. */
+export type MediaInfo =
+  | ({ type: "video" } & VideoInfo)
+  | ({ type: "playlist" } & PlaylistInfo);
+
 export type Resolution =
   | { kind: "best" }
   | { kind: "height"; height: number }
@@ -45,6 +66,8 @@ export interface ProgressEvent {
   totalBytes: number | null;
   filepath: string | null;
   error: string | null;
+  playlistIndex: number | null;
+  playlistCount: number | null;
 }
 
 export function checkEnvironment() {
@@ -52,16 +75,17 @@ export function checkEnvironment() {
 }
 
 export function fetchMetadata(url: string) {
-  return invoke<VideoInfo>("fetch_metadata", { url });
+  return invoke<MediaInfo>("fetch_metadata", { url });
 }
 
 export function startDownload(
   url: string,
   resolution: Resolution,
   outputDir: string | null,
+  playlist: boolean,
 ) {
   return invoke<string>("start_download", {
-    request: { url, resolution, outputDir },
+    request: { url, resolution, outputDir, playlist },
   });
 }
 

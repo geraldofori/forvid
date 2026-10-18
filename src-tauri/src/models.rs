@@ -29,6 +29,36 @@ pub struct VideoInfo {
     pub available_heights: Vec<u32>,
 }
 
+/// A single video inside a playlist (from --flat-playlist extraction).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistEntry {
+    pub id: String,
+    pub title: String,
+    pub duration_seconds: Option<f64>,
+    pub url: Option<String>,
+}
+
+/// Playlist metadata extracted via `yt-dlp -J --flat-playlist`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistInfo {
+    pub id: String,
+    pub title: String,
+    pub uploader: Option<String>,
+    pub thumbnail: Option<String>,
+    pub video_count: usize,
+    pub entries: Vec<PlaylistEntry>,
+}
+
+/// What a URL points at: a single video or a whole playlist.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum MediaInfo {
+    Video(VideoInfo),
+    Playlist(PlaylistInfo),
+}
+
 /// What to download, as chosen in the resolution dropdown.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -49,6 +79,10 @@ pub struct DownloadRequest {
     pub resolution: Resolution,
     /// Destination directory; defaults to ~/Downloads when absent.
     pub output_dir: Option<String>,
+    /// Download the whole playlist the URL points at, into a subfolder
+    /// named after the playlist. When false, `--no-playlist` is passed.
+    #[serde(default)]
+    pub playlist: bool,
 }
 
 /// Progress/lifecycle event emitted on `download-progress`.
@@ -71,4 +105,8 @@ pub struct ProgressEvent {
     pub total_bytes: Option<u64>,
     pub filepath: Option<String>,
     pub error: Option<String>,
+    /// Which video of a playlist is currently downloading (1-based).
+    pub playlist_index: Option<u32>,
+    /// Total videos in the playlist, when downloading one.
+    pub playlist_count: Option<u32>,
 }
