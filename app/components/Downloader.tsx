@@ -61,11 +61,12 @@ export default function Downloader() {
     metaRef.current = meta;
   }, [meta]);
 
-  // Single progress listener for the app's lifetime; events for jobs that
-  // are not the current one (e.g. a stale job id) are ignored.
+  // Single progress listener for the app's lifetime. The engine enforces
+  // one active download at a time, so every event belongs to the current
+  // job — no job-id filtering (which could drop events emitted before the
+  // start_download invoke promise resolves).
   useEffect(() => {
     const unlisten = onDownloadProgress((event) => {
-      if (event.jobId !== jobIdRef.current) return;
       if (TERMINAL_STAGES.has(event.stage)) {
         jobIdRef.current = null;
         if (event.stage === "completed") {
@@ -300,6 +301,18 @@ function percentOf(event: ProgressEvent): number {
   return 0;
 }
 
+function formatBytes(bytes: number | null): string {
+  if (bytes == null) return "…";
+  const units = ["B", "KiB", "MiB", "GiB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(value >= 100 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
 function ProgressView({ event }: { event: ProgressEvent }) {
   const pct = percentOf(event);
   const merging = event.stage === "stream-finished";
@@ -311,6 +324,10 @@ function ProgressView({ event }: { event: ProgressEvent }) {
       <div className="progress-stats">
         <span className="percent">
           {merging ? "Merging…" : event.percent ?? "…"}
+        </span>
+        <span className="muted">
+          {formatBytes(event.downloadedBytes)} /{" "}
+          {formatBytes(event.totalBytes)}
         </span>
         <span className="muted">
           {event.speed ?? ""} {event.eta ? `· ETA ${event.eta}` : ""}
