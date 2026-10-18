@@ -7,6 +7,7 @@ import {
   onDownloadProgress,
   startDownload,
   type ProgressEvent,
+  type Resolution,
   type VideoInfo,
 } from "@/lib/tauri";
 
@@ -24,6 +25,7 @@ export default function Downloader() {
   const [meta, setMeta] = useState<VideoInfo | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
+  const [resolution, setResolution] = useState("best");
   const [job, setJob] = useState<JobState>({ phase: "idle" });
 
   const jobIdRef = useRef<string | null>(null);
@@ -57,6 +59,7 @@ export default function Downloader() {
   useEffect(() => {
     setMeta(null);
     setMetaError(null);
+    setResolution("best"); // heights differ per video
     const trimmed = url.trim();
     if (!/^https?:\/\/.+/.test(trimmed)) return;
 
@@ -78,8 +81,14 @@ export default function Downloader() {
   const handleDownload = async () => {
     const trimmed = url.trim();
     if (!trimmed || job.phase === "downloading") return;
+    const resolutionArg: Resolution =
+      resolution === "best"
+        ? { kind: "best" }
+        : resolution === "audioMp3"
+          ? { kind: "audioMp3" }
+          : { kind: "height", height: Number(resolution) };
     try {
-      const id = await startDownload(trimmed, { kind: "best" });
+      const id = await startDownload(trimmed, resolutionArg);
       jobIdRef.current = id;
       setJob({
         phase: "downloading",
@@ -140,6 +149,24 @@ export default function Downloader() {
       {meta && !downloading && job.phase === "idle" && (
         <p className="hint ready">Ready: {meta.title}</p>
       )}
+
+      <label className="field">
+        <span className="field-label">Quality</span>
+        <select
+          className="select"
+          value={resolution}
+          onChange={(e) => setResolution(e.target.value)}
+          disabled={!meta || downloading}
+        >
+          <option value="best">Best available</option>
+          {meta?.availableHeights.map((h) => (
+            <option key={h} value={String(h)}>
+              {h}p
+            </option>
+          ))}
+          <option value="audioMp3">Audio only · MP3</option>
+        </select>
+      </label>
 
       {downloading ? (
         <button className="btn danger" onClick={handleCancel}>
