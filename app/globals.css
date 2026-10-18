@@ -1,4 +1,22 @@
 :root {
+  /* Light theme (default) */
+  --bg: #f6f4f1;
+  --surface: #ffffff;
+  --surface-raised: #efece8;
+  --border: rgba(28, 26, 23, 0.12);
+  --text: #1c1a17;
+  --muted: #6f6a62;
+  --accent: #e8482f;
+  --accent-hover: #d63c24;
+  --accent-ink: #ffffff;
+  --danger: #d63c24;
+  --success: #15803d;
+  color-scheme: light;
+}
+
+/* Dark theme: keep these two blocks in sync — one for explicit user
+   override, one for following the OS appearance. */
+:root[data-theme="dark"] {
   --bg: #0e0d0c;
   --surface: #171615;
   --surface-raised: #1f1d1b;
@@ -10,11 +28,28 @@
   --accent-ink: #ffffff;
   --danger: #ff5c45;
   --success: #4ade80;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e0d0c;
+    --surface: #171615;
+    --surface-raised: #1f1d1b;
+    --border: rgba(255, 255, 255, 0.09);
+    --text: #f5f2ee;
+    --muted: #9d968c;
+    --accent: #ff5c45;
+    --accent-hover: #ff6e59;
+    --accent-ink: #ffffff;
+    --danger: #ff5c45;
+    --success: #4ade80;
+    color-scheme: dark;
+  }
 }
 
 html {
   height: 100%;
-  color-scheme: dark;
 }
 
 * {
@@ -38,6 +73,44 @@ body {
 code,
 .filepath {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* ---- Theme toggle ---- */
+
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  z-index: 10;
+}
+
+.theme-option {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.theme-option:hover:not(.active) {
+  color: var(--text);
+}
+
+.theme-option.active {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* ---- Layout ---- */
