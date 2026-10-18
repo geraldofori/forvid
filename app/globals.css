@@ -461,6 +461,103 @@ code,
   word-break: break-word;
 }
 
+/* ---- First-run gate / setup ---- */
+
+.gate {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.setup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.setup-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.setup-copy {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  text-align: center;
+}
+
+.setup-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tool-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.tool-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tool-name {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.tool-role {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tool-state {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.tool-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 120px;
+}
+
+.tool-progress .progress-track {
+  flex: 1;
+}
+
+.tool-pct {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 11px;
+  min-width: 34px;
+  text-align: right;
+}
+
+.tool-done {
+  color: var(--success);
+  font-weight: 600;
+}
+
 /* ---- Info modal ---- */
 
 .modal-overlay {

@@ -1,4 +1,4 @@
-import Downloader from "./components/Downloader";
+import AppGate from "./components/AppGate";
 import StatusBar from "./components/StatusBar";
 import ThemeToggle from "./components/ThemeToggle";
 
@@ -8,7 +8,7 @@ export default function Home() {
       <div className="top-bar">
         <ThemeToggle />
       </div>
-      <Downloader />
+      <AppGate />
       <StatusBar />
     </main>
   );

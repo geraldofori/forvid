@@ -1,12 +1,14 @@
 # Forvid
 
-A lightweight native macOS app for downloading videos from the web — powered
-by [yt-dlp](https://github.com/yt-dlp/yt-dlp), wrapped in a clean desktop UI.
+A lightweight native desktop app for downloading videos from the web —
+powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp), wrapped in a clean UI.
 
 Forvid gives you the power of yt-dlp without the command line: paste a link,
 pick a quality, and watch it download. No browser extensions, no ads, no
-sketchy downloader websites — just a small native app (~12 MB) that talks to
-the yt-dlp install already on your Mac.
+sketchy downloader websites. **No setup either** — on first launch, Forvid
+downloads its own copy of yt-dlp, ffmpeg and deno into its private folder
+and manages them for you. (If you already have them installed, it simply
+uses those.)
 
 ---
 
@@ -47,28 +49,23 @@ the yt-dlp install already on your Mac.
 
 ## Requirements
 
-Every platform needs two things:
+**For using the app: nothing.** On first launch, Forvid downloads the tools
+it needs (yt-dlp, ffmpeg, deno — about 120 MB) into its own private folder
+and shows progress while it does. If you already have these tools installed
+(Homebrew, winget, your distro), Forvid just uses those instead — no
+duplication.
 
-1. **Build tools** — [Node.js](https://nodejs.org) and
-   [Rust](https://www.rust-lang.org/tools/install) (`rustup`)
-2. **yt-dlp and ffmpeg** — Forvid drives your system install. ffmpeg merges
-   high-quality video+audio into MP4; [deno](https://deno.land) lets yt-dlp
-   handle YouTube's current player challenges. Forvid finds them
-   automatically (it searches PATH plus the usual package-manager locations,
-   so it also works when launched from Finder/Start menu/a .desktop file).
-
-The per-OS specifics are below.
+**For building from source:** [Node.js](https://nodejs.org) and
+[Rust](https://www.rust-lang.org/tools/install) (`rustup`). The per-OS
+specifics are below.
 
 ## Setup — macOS
 
 ```sh
-# 1. yt-dlp + ffmpeg (deno comes along as a yt-dlp dependency)
-brew install yt-dlp ffmpeg
-
-# 2. Rust, if you don't have it
+# 1. Rust, if you don't have it
 curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 
-# 3. Build and install
+# 2. Build and install
 git clone https://github.com/geraldofori/forvid.git
 cd forvid
 npm install
@@ -84,20 +81,13 @@ Open → Open**.
 
 ## Setup — Windows
 
-1. **yt-dlp + ffmpeg** (via [winget](https://learn.microsoft.com/windows/package-manager/winget/), included in Windows 10/11):
-
-   ```powershell
-   winget install yt-dlp.yt-dlp
-   winget install Gyan.FFmpeg
-   ```
-
-2. **WebView2** — already present on Windows 10 (1803+) and 11. Otherwise get
+1. **WebView2** — already present on Windows 10 (1803+) and 11. Otherwise get
    the [Evergreen Bootstrapper](https://developer.microsoft.com/microsoft-edge/webview2/).
-3. **Microsoft C++ Build Tools** — from the
+2. **Microsoft C++ Build Tools** — from the
    [Visual Studio installer](https://visualstudio.microsoft.com/visual-cpp-build-tools/),
    select "Desktop development with C++".
-4. **Rust** — `winget install Rustlang.Rustup` (choose the MSVC toolchain).
-5. **Build**:
+3. **Rust** — `winget install Rustlang.Rustup` (choose the MSVC toolchain).
+4. **Build**:
 
    ```powershell
    git clone https://github.com/geraldofori/forvid.git
@@ -122,15 +112,8 @@ Open → Open**.
      libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
    ```
 
-2. **yt-dlp + ffmpeg**:
-
-   ```sh
-   sudo apt install ffmpeg
-   pip install yt-dlp        # or: sudo apt install yt-dlp on newer releases
-   ```
-
-3. **Rust** — `curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh`
-4. **Build**:
+2. **Rust** — `curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh`
+3. **Build**:
 
    ```sh
    git clone https://github.com/geraldofori/forvid.git
@@ -141,10 +124,14 @@ Open → Open**.
 
    Packages land in `src-tauri/target/release/bundle/` (`.AppImage`, `.deb`).
 
+   On Linux, Forvid manages yt-dlp itself but expects `ffmpeg` from your
+   distro (`sudo apt install ffmpeg`) — reliable static ffmpeg builds for
+   Linux don't come as plain zips.
+
 > Forvid is developed and tested on macOS; the same codebase builds on
-> Windows and Linux (the engine resolves yt-dlp per-OS). Pre-built downloads
-> for all three platforms will be published on the
-> [Releases](https://github.com/geraldofori/forvid/releases) page.
+> Windows and Linux. Pre-built downloads for all three platforms will be
+> published on the [Releases](https://github.com/geraldofori/forvid/releases)
+> page.
 
 ## Using Forvid
 
@@ -171,17 +158,16 @@ Open → Open**.
 
 ## Troubleshooting
 
-**"yt-dlp was not found"**
-Install it: `brew install yt-dlp ffmpeg`, then relaunch the app.
+**First-run setup fails**
+Check your internet connection and hit *Try again* — the tool downloads
+resume where they stopped (already-downloaded tools are kept). If a download
+source is unreachable, installing the tools manually works too: Forvid
+detects system installs (Homebrew, winget, distro packages) automatically.
 
 **Downloads suddenly fail or YouTube errors appear**
 YouTube changes its player regularly, and yt-dlp updates to keep up — an
-outdated yt-dlp is the cause almost every time. Update it:
-
-```sh
-brew upgrade yt-dlp
-```
-
+outdated yt-dlp is the cause almost every time. If you have a system
+install, update it (`brew upgrade yt-dlp` / `winget upgrade yt-dlp.yt-dlp`).
 Your current yt-dlp version is shown in the bar at the bottom of the app.
 
 **"Sign in to confirm you're not a bot"**
@@ -230,7 +216,7 @@ src-tauri/src/
 
 - [ ] Download queue (line up several videos or playlists)
 - [ ] Subtitle download options
-- [ ] Bundled yt-dlp, so the app works with zero setup
+- [ ] One-click updates for managed tools
 - [ ] Per-video progress within a playlist download
 
 ## Acknowledgements

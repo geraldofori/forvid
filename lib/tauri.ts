@@ -70,8 +70,41 @@ export interface ProgressEvent {
   playlistCount: number | null;
 }
 
+export type ToolPresence = "managed" | "system" | "missing";
+
+export interface ToolStatus {
+  dir: string;
+  ytdlp: ToolPresence;
+  ffmpeg: ToolPresence;
+  ffprobe: ToolPresence;
+  deno: ToolPresence;
+  needsSetup: boolean;
+}
+
+export interface ToolsProgress {
+  tool: string;
+  stage: "downloading" | "installing" | "done" | "error";
+  downloadedBytes: number | null;
+  totalBytes: number | null;
+  error: string | null;
+}
+
 export function checkEnvironment() {
   return invoke<EnvironmentStatus>("check_environment");
+}
+
+export function checkTools() {
+  return invoke<ToolStatus>("check_tools");
+}
+
+export function setupTools() {
+  return invoke<void>("setup_tools");
+}
+
+export function onToolsProgress(
+  callback: (event: ToolsProgress) => void,
+): Promise<UnlistenFn> {
+  return listen<ToolsProgress>("tools-progress", (e) => callback(e.payload));
 }
 
 export function fetchMetadata(url: string) {
