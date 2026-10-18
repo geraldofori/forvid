@@ -75,19 +75,43 @@ code,
   font-family: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-/* ---- Theme toggle ---- */
+/* ---- Top bar: info + theme toggle ---- */
 
-.theme-toggle {
+.top-bar {
   position: fixed;
   top: 14px;
   right: 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 10;
+}
+
+.info-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.info-button:hover {
+  color: var(--text);
+}
+
+.theme-toggle {
   display: flex;
   gap: 2px;
   padding: 3px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 999px;
-  z-index: 10;
 }
 
 .theme-option {
@@ -409,6 +433,83 @@ code,
   color: var(--danger);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* ---- Info modal ---- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 100;
+}
+
+.modal {
+  width: min(400px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-head h2 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.modal-close {
+  padding: 2px 8px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: var(--text);
+}
+
+.modal-lede {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.modal-versions {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.modal-github {
+  align-self: flex-start;
 }
 
 /* ---- Metadata card ---- */
