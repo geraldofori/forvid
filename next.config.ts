@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   // next/image optimization requires a server; serve images as-is.
   images: { unoptimized: true },
   // In dev, the webview loads assets from the Next dev server.
-  assetPrefix: isProd ? undefined : `http://${internalHost}:3000`,
+  assetPrefix: isProd ? undefined : `http://${internalHost}:3100`,
 };
 
 export default nextConfig;
