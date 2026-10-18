@@ -1,6 +1,7 @@
 mod commands;
 mod download;
 mod models;
+mod tools;
 mod ytdlp;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -23,6 +24,8 @@ pub fn run() {
         .manage(download::DownloadManager::default())
         .invoke_handler(tauri::generate_handler![
             commands::check_environment,
+            commands::check_tools,
+            commands::setup_tools,
             commands::fetch_metadata,
             commands::start_download,
             commands::cancel_download

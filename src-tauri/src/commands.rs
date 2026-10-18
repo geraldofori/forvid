@@ -3,12 +3,33 @@
 use tauri::{AppHandle, State};
 
 use crate::download::DownloadManager;
-use crate::models::{DownloadRequest, EnvironmentStatus, MediaInfo};
+use crate::models::{DownloadRequest, EnvironmentStatus, MediaInfo, ToolStatus};
 
 /// Report which external binaries were found and their versions.
 #[tauri::command]
 pub fn check_environment() -> Result<EnvironmentStatus, String> {
     crate::ytdlp::environment_status()
+}
+
+/// Report which tools are available and from where (managed vs system),
+/// so the frontend can decide whether first-run setup is needed.
+#[tauri::command]
+pub fn check_tools() -> ToolStatus {
+    crate::tools::tools_status()
+}
+
+/// Download and install all missing managed tools. Progress arrives as
+/// `tools-progress` events. Resolves when every tool is installed.
+#[tauri::command]
+pub async fn setup_tools(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::tools::setup_tools(move |event| {
+            use tauri::Emitter;
+            app.emit(crate::tools::TOOLS_EVENT, &event).ok();
+        })
+    })
+    .await
+    .map_err(|e| format!("setup task failed: {e}"))?
 }
 
 /// Fetch metadata for a URL without downloading anything. Resolves to a

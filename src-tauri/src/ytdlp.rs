@@ -60,7 +60,7 @@ fn candidate_dirs() -> Vec<PathBuf> {
 }
 
 /// Platform-specific executable names, tried in order (Windows has .exe).
-fn binary_names(name: &str) -> Vec<String> {
+pub(crate) fn binary_names(name: &str) -> Vec<String> {
     #[cfg(windows)]
     {
         vec![format!("{name}.exe"), name.to_string()]
@@ -71,7 +71,7 @@ fn binary_names(name: &str) -> Vec<String> {
     }
 }
 
-fn find_binary(name: &str) -> Option<PathBuf> {
+pub(crate) fn find_binary(name: &str) -> Option<PathBuf> {
     candidate_dirs()
         .into_iter()
         .flat_map(|dir| {
@@ -103,15 +103,20 @@ pub struct Binaries {
 }
 
 impl Binaries {
-    /// Resolve all binaries. Fails only if yt-dlp itself is missing;
-    /// ffmpeg and deno are optional (yt-dlp degrades gracefully, but we
-    /// surface their absence in [`crate::models::EnvironmentStatus`]).
+    /// Resolve all binaries, preferring the app's managed downloads over
+    /// system installs. Fails only if yt-dlp is missing from both; ffmpeg
+    /// and deno are optional (yt-dlp degrades gracefully, but we surface
+    /// their absence in [`crate::models::EnvironmentStatus`]).
     pub fn resolve() -> Result<Self, String> {
-        let ytdlp = find_binary("yt-dlp").ok_or_else(|| {
+        let managed = crate::tools::tools_dir();
+        let find = |name: &str| {
+            crate::tools::find_in(&managed, name).or_else(|| find_binary(name))
+        };
+        let ytdlp = find("yt-dlp").ok_or_else(|| {
             format!("yt-dlp was not found. Install it with: {INSTALL_HINT}")
         })?;
-        let ffmpeg_dir = find_binary("ffmpeg").and_then(|p| p.parent().map(Path::to_path_buf));
-        let deno_dir = find_binary("deno").and_then(|p| p.parent().map(Path::to_path_buf));
+        let ffmpeg_dir = find("ffmpeg").and_then(|p| p.parent().map(Path::to_path_buf));
+        let deno_dir = find("deno").and_then(|p| p.parent().map(Path::to_path_buf));
         Ok(Self {
             ytdlp,
             ffmpeg_dir,

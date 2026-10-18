@@ -110,3 +110,38 @@ pub struct ProgressEvent {
     /// Total videos in the playlist, when downloading one.
     pub playlist_count: Option<u32>,
 }
+
+/// Whether a required tool comes from the app's managed downloads, a
+/// system install, or is absent entirely.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ToolPresence {
+    Managed,
+    System,
+    Missing,
+}
+
+/// Presence of every tool Forvid needs, plus where managed tools live.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolStatus {
+    pub dir: String,
+    pub ytdlp: ToolPresence,
+    pub ffmpeg: ToolPresence,
+    pub ffprobe: ToolPresence,
+    pub deno: ToolPresence,
+    /// True when the app cannot run without first downloading tools.
+    pub needs_setup: bool,
+}
+
+/// Progress for one tool being downloaded/installed (event: tools-progress).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolsProgress {
+    pub tool: String,
+    /// downloading | installing | done | error
+    pub stage: String,
+    pub downloaded_bytes: Option<u64>,
+    pub total_bytes: Option<u64>,
+    pub error: Option<String>,
+}
