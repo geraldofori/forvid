@@ -200,11 +200,6 @@ export default function Downloader() {
 
   return (
     <section className="downloader">
-      <header className="brand">
-        <h1>Forvid</h1>
-        <p>Paste a link. Pick a quality. Get the video.</p>
-      </header>
-
       {job.phase === "idle" && <ClipboardChip onUse={setUrl} />}
 
       <input
