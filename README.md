@@ -12,6 +12,48 @@ uses those.)
 
 ---
 
+## Get Forvid (the easy way)
+
+No technical knowledge needed — download the app, open it, done. Forvid
+installs everything it needs by itself the first time you open it.
+
+### On a Mac
+
+1. Open the [Releases page](https://github.com/geraldofori/forvid/releases)
+   and download the file ending in **`.dmg`** (pick **aarch64** for any Mac
+   with an M1/M2/M3/M4 chip, **x64** for older Intel Macs).
+2. Double-click the downloaded file. A window opens — **drag Forvid onto
+   the Applications folder**.
+3. Open Forvid from your Applications folder. The very first time, your Mac
+   may warn that the app is from an unidentified developer:
+   **right-click the app → Open → Open**. You only have to do this once.
+4. Forvid downloads its tools by itself (about 120 MB, one time only) —
+   then paste a video link and you're off.
+
+### On Windows
+
+1. Open the [Releases page](https://github.com/geraldofori/forvid/releases)
+   and download the file ending in **`-setup.exe`**.
+2. Double-click it to install. Windows may show a blue "Windows protected
+   your PC" message — click **More info → Run anyway**. (The app simply
+   isn't signed with a paid certificate; it's safe.)
+3. Open Forvid from the Start menu. On first launch it downloads its tools
+   by itself (about 120 MB, one time only).
+4. Paste a video link and download.
+
+### On Linux
+
+1. Open the [Releases page](https://github.com/geraldofori/forvid/releases)
+   and download the file ending in **`.AppImage`**.
+2. Make it runnable: right-click the file → **Properties → Permissions** →
+   tick **"Allow executing file as program"**.
+3. Double-click it to open Forvid.
+4. One small extra step on Linux: install **ffmpeg** from your app store or
+   package manager (on Ubuntu: `sudo apt install ffmpeg`). Forvid takes
+   care of everything else itself.
+
+---
+
 ## What it does
 
 - **Paste a link, get the video.** Forvid fetches the video's title, channel,
@@ -47,19 +89,15 @@ uses those.)
 | Concurrency | One download at a time (a queue is planned) |
 | Size | ~12 MB installed (Tauri, not Electron) |
 
-## Requirements
+## Build from source
 
-**For using the app: nothing.** On first launch, Forvid downloads the tools
-it needs (yt-dlp, ffmpeg, deno — about 120 MB) into its own private folder
-and shows progress while it does. If you already have these tools installed
-(Homebrew, winget, your distro), Forvid just uses those instead — no
-duplication.
+Only needed if you want to compile Forvid yourself (for example to develop
+on it) — **not** needed to use the app; see
+[Get Forvid (the easy way)](#get-forvid-the-easy-way) above. You'll need
+[Node.js](https://nodejs.org) and [Rust](https://www.rust-lang.org/tools/install)
+(`rustup`).
 
-**For building from source:** [Node.js](https://nodejs.org) and
-[Rust](https://www.rust-lang.org/tools/install) (`rustup`). The per-OS
-specifics are below.
-
-## Setup — macOS
+### macOS
 
 ```sh
 # 1. Rust, if you don't have it
@@ -79,7 +117,7 @@ Because Forvid is built ad-hoc signed (no Apple Developer account), the first
 launch may be blocked by Gatekeeper. If that happens: **right-click the app →
 Open → Open**.
 
-## Setup — Windows
+### Windows
 
 1. **WebView2** — already present on Windows 10 (1803+) and 11. Otherwise get
    the [Evergreen Bootstrapper](https://developer.microsoft.com/microsoft-edge/webview2/).
@@ -100,7 +138,7 @@ Open → Open**.
    (`nsis` / `msi` installers, or the standalone `app.exe` in
    `src-tauri\target\release\`).
 
-## Setup — Linux
+### Linux
 
 1. **Tauri's system dependencies** (Debian/Ubuntu — see the
    [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for other
@@ -129,9 +167,7 @@ Open → Open**.
    Linux don't come as plain zips.
 
 > Forvid is developed and tested on macOS; the same codebase builds on
-> Windows and Linux. Pre-built downloads for all three platforms will be
-> published on the [Releases](https://github.com/geraldofori/forvid/releases)
-> page.
+> Windows and Linux.
 
 ## Using Forvid
 
@@ -182,7 +218,8 @@ interfaces (`--progress-template`, `-j`, `--print after_move:filepath`) —
 never its human-readable output.
 
 ```sh
-# Prerequisites: Node.js, Rust (rustup), yt-dlp + ffmpeg via Homebrew
+# Prerequisites: Node.js, Rust (rustup), and yt-dlp + ffmpeg installed
+# (any method — or let the app's first-run setup fetch them for you)
 
 npm install
 
