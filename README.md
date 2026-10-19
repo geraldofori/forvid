@@ -10,6 +10,10 @@ downloads its own copy of yt-dlp, ffmpeg and deno into its private folder
 and manages them for you. (If you already have them installed, it simply
 uses those.)
 
+It works with YouTube and
+[thousands of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) —
+everything yt-dlp supports.
+
 ---
 
 ## Get Forvid (the easy way)
@@ -170,6 +174,10 @@ Open → Open**.
 > Windows and Linux.
 
 ## Using Forvid
+
+Forvid downloads from YouTube and
+[thousands of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) —
+if yt-dlp supports it, Forvid can download it.
 
 1. **Copy a video or playlist link** anywhere (or paste one directly into
    the box). If the app notices a link on your clipboard, it offers to fill
