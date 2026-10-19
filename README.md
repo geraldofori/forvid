@@ -20,8 +20,8 @@ installs everything it needs by itself the first time you open it.
 ### On a Mac
 
 1. Open the [Releases page](https://github.com/geraldofori/forvid/releases)
-   and download the file ending in **`.dmg`** (pick **aarch64** for any Mac
-   with an M1/M2/M3/M4 chip, **x64** for older Intel Macs).
+   and download the file ending in **`.dmg`** — it works on every Mac
+   (Apple Silicon and Intel alike).
 2. Double-click the downloaded file. A window opens — **drag Forvid onto
    the Applications folder**.
 3. Open Forvid from your Applications folder. The very first time, your Mac
@@ -235,6 +235,22 @@ cd src-tauri && cargo test -- --ignored
 # Production bundle
 npm run tauri build
 ```
+
+### Cutting a release (maintainer)
+
+All platform packages are built by the GitHub Actions workflow in
+`.github/workflows/release.yml` — you never build them locally:
+
+```sh
+git tag v0.1.0          # or the next version
+git push origin v0.1.0
+```
+
+The workflow builds macOS (universal), Windows (NSIS setup) and Linux
+(AppImage/deb) in parallel and creates a **draft release** with everything
+attached. Review the draft on the
+[Releases page](https://github.com/geraldofori/forvid/releases), then
+publish. GitHub Actions is free for this public repository.
 
 ### Project structure
 
