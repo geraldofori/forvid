@@ -68,6 +68,8 @@ export interface ProgressEvent {
   error: string | null;
   playlistIndex: number | null;
   playlistCount: number | null;
+  partialDownloaded: number | null;
+  partialTotal: number | null;
 }
 
 export type ToolPresence = "managed" | "system" | "missing";

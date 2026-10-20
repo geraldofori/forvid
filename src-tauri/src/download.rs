@@ -127,26 +127,31 @@ fn supervise(
         })
     };
 
-    // stdout parser: progress lines + the final after_move filepath line.
+    // stdout parser: progress lines + after_move filepath lines (one per
+    // completed file, so playlists yield many).
     let emit = Arc::new(emit);
     let stdout_handle = {
         let job_id = job_id.clone();
         let emit = emit.clone();
         std::thread::spawn(move || {
-            let mut filepath: Option<String> = None;
+            let mut filepaths: Vec<String> = Vec::new();
+            let mut playlist_total: Option<u32> = None;
             if let Some(stdout) = stdout {
                 for line in BufReader::new(stdout).lines().map_while(Result::ok) {
                     if let Some(rest) = line.strip_prefix("YTDLP|") {
                         if let Some(event) = parse_progress_line(&job_id, rest) {
+                            if event.playlist_count.is_some() {
+                                playlist_total = event.playlist_count;
+                            }
                             emit(event);
                         }
                     } else if !line.trim().is_empty() {
                         // --print after_move:filepath output
-                        filepath = Some(line.trim().to_string());
+                        filepaths.push(line.trim().to_string());
                     }
                 }
             }
-            filepath
+            (filepaths, playlist_total)
         })
     };
 
@@ -167,40 +172,74 @@ fn supervise(
         std::thread::sleep(Duration::from_millis(100));
     };
 
-    let filepath = stdout_handle.join().unwrap_or(None);
+    let (filepaths, playlist_total) = stdout_handle.join().unwrap_or_default();
     stderr_handle.join().ok();
     jobs.lock().unwrap().remove(&job_id);
 
-    let terminal = if control.cancelled.load(Ordering::SeqCst) {
-        ProgressEvent::terminal(&job_id, "cancelled", None, None)
-    } else if status.map(|s| s.success()).unwrap_or(false) {
-        ProgressEvent::terminal(&job_id, "completed", filepath, None)
-    } else {
-        let stderr = stderr_buf.lock().unwrap().clone();
-        ProgressEvent::terminal(&job_id, "error", None, Some(stderr_tail(&stderr)))
-    };
+    let terminal = decide_terminal(
+        &job_id,
+        control.cancelled.load(Ordering::SeqCst),
+        status.map(|s| s.success()).unwrap_or(false),
+        filepaths,
+        playlist_total,
+        &stderr_buf.lock().unwrap(),
+    );
     emit(terminal);
 }
 
+/// Decide the terminal event from how the process exited and what it
+/// actually produced. Crucially, yt-dlp exits non-zero when ANY playlist
+/// entry fails (private/deleted/region-locked videos are common) even
+/// though it downloads everything else — that is a partial success, not
+/// a failed download.
+fn decide_terminal(
+    job_id: &str,
+    cancelled: bool,
+    success: bool,
+    filepaths: Vec<String>,
+    playlist_total: Option<u32>,
+    stderr: &str,
+) -> ProgressEvent {
+    let mut event = ProgressEvent::blank(job_id);
+    if cancelled {
+        event.stage = "cancelled".to_string();
+        return event;
+    }
+    if success {
+        event.stage = "completed".to_string();
+        event.filepath = filepaths.last().cloned();
+        return event;
+    }
+    if !filepaths.is_empty() {
+        // Non-zero exit but files landed: partial success.
+        event.stage = "completed".to_string();
+        event.filepath = filepaths.last().cloned();
+        event.partial_downloaded = Some(filepaths.len() as u32);
+        event.partial_total = playlist_total;
+        event.error = Some(stderr_tail(stderr));
+        return event;
+    }
+    event.stage = "error".to_string();
+    event.error = Some(stderr_tail(stderr));
+    event
+}
+
 impl ProgressEvent {
-    fn terminal(
-        job_id: &str,
-        stage: &str,
-        filepath: Option<String>,
-        error: Option<String>,
-    ) -> Self {
+    fn blank(job_id: &str) -> Self {
         Self {
             job_id: job_id.to_string(),
-            stage: stage.to_string(),
+            stage: String::new(),
             percent: None,
             speed: None,
             eta: None,
             downloaded_bytes: None,
             total_bytes: None,
-            filepath,
-            error,
+            filepath: None,
+            error: None,
             playlist_index: None,
             playlist_count: None,
+            partial_downloaded: None,
+            partial_total: None,
         }
     }
 }
@@ -232,6 +271,8 @@ fn parse_progress_line(job_id: &str, rest: &str) -> Option<ProgressEvent> {
         error: None,
         playlist_index: opt_u32(parts[6]),
         playlist_count: opt_u32(parts[7]),
+        partial_downloaded: None,
+        partial_total: None,
     })
 }
 
@@ -455,6 +496,46 @@ mod tests {
         assert!(args.contains(&"--no-playlist".to_string()));
         let pos = args.iter().position(|a| a == "-o").expect("-o present");
         assert_eq!(args[pos + 1], "%(title)s.%(ext)s");
+    }
+
+    #[test]
+    fn clean_exit_is_completed() {
+        let ev = decide_terminal("job-1", false, true, vec!["/tmp/a.mp4".into()], None, "");
+        assert_eq!(ev.stage, "completed");
+        assert_eq!(ev.filepath.as_deref(), Some("/tmp/a.mp4"));
+        assert_eq!(ev.partial_downloaded, None);
+    }
+
+    #[test]
+    fn cancelled_wins_over_everything() {
+        let ev = decide_terminal("job-1", true, false, vec!["/tmp/a.mp4".into()], None, "");
+        assert_eq!(ev.stage, "cancelled");
+    }
+
+    #[test]
+    fn nonzero_exit_with_files_is_partial_success() {
+        // The exact 403 scenario: yt-dlp skipped one playlist entry but
+        // downloaded the rest, exiting 1. Not an error state.
+        let files: Vec<String> = (1..=37).map(|i| format!("/tmp/{i}.mp4")).collect();
+        let ev = decide_terminal(
+            "job-1",
+            false,
+            false,
+            files,
+            Some(40),
+            "ERROR: unable to download video data: HTTP Error 403: Forbidden",
+        );
+        assert_eq!(ev.stage, "completed");
+        assert_eq!(ev.partial_downloaded, Some(37));
+        assert_eq!(ev.partial_total, Some(40));
+        assert!(ev.error.is_some(), "stderr tail kept as a note");
+    }
+
+    #[test]
+    fn nonzero_exit_with_no_files_is_a_real_error() {
+        let ev = decide_terminal("job-1", false, false, vec![], None, "ERROR: boom");
+        assert_eq!(ev.stage, "error");
+        assert_eq!(ev.error.as_deref(), Some("ERROR: boom"));
     }
 
     /// Full end-to-end gate: downloads a real video through the engine,

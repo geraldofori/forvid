@@ -432,6 +432,12 @@ code,
   font-weight: 600;
 }
 
+.partial-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #d9a03f;
+}
+
 .result-actions {
   display: flex;
   gap: 8px;

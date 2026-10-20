@@ -109,6 +109,11 @@ pub struct ProgressEvent {
     pub playlist_index: Option<u32>,
     /// Total videos in the playlist, when downloading one.
     pub playlist_count: Option<u32>,
+    /// On a `completed` event after a playlist run where yt-dlp exited
+    /// non-zero (some entries skipped): how many files were saved.
+    pub partial_downloaded: Option<u32>,
+    /// How many entries the playlist had in that case.
+    pub partial_total: Option<u32>,
 }
 
 /// Whether a required tool comes from the app's managed downloads, a
@@ -144,4 +149,14 @@ pub struct ToolsProgress {
     pub downloaded_bytes: Option<u64>,
     pub total_bytes: Option<u64>,
     pub error: Option<String>,
+}
+
+/// A newer Forvid release available on GitHub, when one exists.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppUpdate {
+    /// Version string of the newer release, e.g. "0.2.0".
+    pub version: String,
+    /// Release page URL to open for the download.
+    pub url: String,
 }

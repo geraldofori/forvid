@@ -3,7 +3,7 @@
 use tauri::{AppHandle, State};
 
 use crate::download::DownloadManager;
-use crate::models::{DownloadRequest, EnvironmentStatus, MediaInfo, ToolStatus};
+use crate::models::{AppUpdate, DownloadRequest, EnvironmentStatus, MediaInfo, ToolStatus};
 
 /// Report which external binaries were found and their versions.
 #[tauri::command]
@@ -30,6 +30,16 @@ pub async fn setup_tools(app: AppHandle) -> Result<(), String> {
     })
     .await
     .map_err(|e| format!("setup task failed: {e}"))?
+}
+
+/// Check GitHub for a newer Forvid release. Returns null when the app is
+/// up to date (or the check fails — updates must never break the app).
+#[tauri::command]
+pub async fn check_app_update() -> Option<AppUpdate> {
+    tauri::async_runtime::spawn_blocking(crate::update::check_app_update)
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Fetch metadata for a URL without downloading anything. Resolves to a

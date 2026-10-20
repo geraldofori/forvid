@@ -38,7 +38,13 @@ async function notifyCompletion(title: string, body: string) {
 type JobState =
   | { phase: "idle" }
   | { phase: "downloading"; event: ProgressEvent }
-  | { phase: "completed"; filepath: string }
+  | {
+      phase: "completed";
+      filepath: string;
+      partialDownloaded: number | null;
+      partialTotal: number | null;
+      note: string | null;
+    }
   | { phase: "cancelled" }
   | { phase: "error"; message: string };
 
@@ -72,7 +78,13 @@ export default function Downloader() {
       if (TERMINAL_STAGES.has(event.stage)) {
         jobIdRef.current = null;
         if (event.stage === "completed") {
-          setJob({ phase: "completed", filepath: event.filepath ?? "" });
+          setJob({
+            phase: "completed",
+            filepath: event.filepath ?? "",
+            partialDownloaded: event.partialDownloaded,
+            partialTotal: event.partialTotal,
+            note: event.error,
+          });
           notifyCompletion(
             "Download complete",
             metaRef.current?.title ?? event.filepath ?? "",
@@ -160,6 +172,8 @@ export default function Downloader() {
           error: null,
           playlistIndex: null,
           playlistCount: null,
+          partialDownloaded: null,
+          partialTotal: null,
         },
       });
     } catch (e) {
@@ -288,7 +302,20 @@ export default function Downloader() {
 
       {job.phase === "completed" && (
         <div className="result success">
-          <p className="result-title">Download complete</p>
+          <p className="result-title">
+            {job.partialDownloaded != null
+              ? `Saved ${job.partialDownloaded}${
+                  job.partialTotal ? ` of ${job.partialTotal}` : ""
+                } files`
+              : "Download complete"}
+          </p>
+          {job.partialDownloaded != null && (
+            <p className="partial-note">
+              Some entries were skipped — usually private, deleted or
+              region-locked videos, which can&apos;t be downloaded.
+              Re-running will retry only those.
+            </p>
+          )}
           <code className="filepath">{job.filepath}</code>
           <div className="result-actions">
             {job.filepath && (

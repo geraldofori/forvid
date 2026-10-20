@@ -2,6 +2,7 @@ mod commands;
 mod download;
 mod models;
 mod tools;
+mod update;
 mod ytdlp;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -26,6 +27,7 @@ pub fn run() {
             commands::check_environment,
             commands::check_tools,
             commands::setup_tools,
+            commands::check_app_update,
             commands::fetch_metadata,
             commands::start_download,
             commands::cancel_download
