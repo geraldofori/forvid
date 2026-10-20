@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="224" fill="#ff5c45"/>
+  <!-- Download arrow: shaft + head. A play button rotated to point down —
+       video and download in one mark. -->
+  <rect x="468" y="300" width="88" height="290" rx="44" fill="#ffffff"/>
+  <path d="M332 556 L692 556 L512 736 Z" fill="#ffffff"/>
+</svg>
