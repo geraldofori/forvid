@@ -641,6 +641,27 @@ code,
   align-self: flex-start;
 }
 
+/* ---- Update banner ---- */
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.update-text {
+  flex: 1;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- Metadata card ---- */
 
 .meta-card {

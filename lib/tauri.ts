@@ -91,6 +91,15 @@ export interface ToolsProgress {
   error: string | null;
 }
 
+export interface AppUpdate {
+  version: string;
+  url: string;
+}
+
+export function checkAppUpdate() {
+  return invoke<AppUpdate | null>("check_app_update");
+}
+
 export function checkEnvironment() {
   return invoke<EnvironmentStatus>("check_environment");
 }
