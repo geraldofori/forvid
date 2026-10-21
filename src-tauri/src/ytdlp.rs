@@ -74,11 +74,7 @@ pub(crate) fn binary_names(name: &str) -> Vec<String> {
 pub(crate) fn find_binary(name: &str) -> Option<PathBuf> {
     candidate_dirs()
         .into_iter()
-        .flat_map(|dir| {
-            binary_names(name)
-                .into_iter()
-                .map(move |n| dir.join(n))
-        })
+        .flat_map(|dir| binary_names(name).into_iter().map(move |n| dir.join(n)))
         .find(|path| path.is_file())
 }
 
@@ -89,8 +85,7 @@ const INSTALL_HINT: &str = "brew install yt-dlp ffmpeg";
 const INSTALL_HINT: &str =
     "pip install yt-dlp && sudo apt install ffmpeg  (or your distro's packages)";
 #[cfg(target_os = "windows")]
-const INSTALL_HINT: &str =
-    "winget install yt-dlp.yt-dlp && winget install Gyan.FFmpeg";
+const INSTALL_HINT: &str = "winget install yt-dlp.yt-dlp && winget install Gyan.FFmpeg";
 
 /// Resolved locations of everything needed to run yt-dlp correctly.
 #[derive(Debug, Clone)]
@@ -111,12 +106,9 @@ impl Binaries {
     /// in [`crate::models::EnvironmentStatus`]).
     pub fn resolve() -> Result<Self, String> {
         let managed = crate::tools::tools_dir();
-        let find = |name: &str| {
-            find_binary(name).or_else(|| crate::tools::find_in(&managed, name))
-        };
-        let ytdlp = find("yt-dlp").ok_or_else(|| {
-            format!("yt-dlp was not found. Install it with: {INSTALL_HINT}")
-        })?;
+        let find = |name: &str| find_binary(name).or_else(|| crate::tools::find_in(&managed, name));
+        let ytdlp = find("yt-dlp")
+            .ok_or_else(|| format!("yt-dlp was not found. Install it with: {INSTALL_HINT}"))?;
         let ffmpeg_dir = find("ffmpeg").and_then(|p| p.parent().map(Path::to_path_buf));
         let deno_dir = find("deno").and_then(|p| p.parent().map(Path::to_path_buf));
         Ok(Self {

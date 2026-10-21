@@ -79,6 +79,9 @@ installs everything it needs by itself the first time you open it.
 - **Works with your system.** Dark and light mode (follows your Mac by
   default, or pick one), native notification when a download completes, and
   **Reveal in Finder** to jump straight to the file.
+- **Updates itself.** When a new version is out, an update pill appears
+  top-left. One click downloads, verifies and installs it — then just
+  restart. No browser, no installer windows.
 
 ## Capabilities at a glance
 
@@ -111,7 +114,7 @@ curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 git clone https://github.com/geraldofori/forvid.git
 cd forvid
 npm install
-npm run tauri build
+npm run build:signed      # needs the updater signing key, see below
 cp -R src-tauri/target/release/bundle/macos/Forvid.app /Applications
 ```
 
@@ -196,6 +199,14 @@ if yt-dlp supports it, Forvid can download it.
 > **Playlists** are saved into a new folder named after the playlist (files numbered in their original order), inside
 > your chosen destination — e.g. `~/Downloads/My Playlist/`.
 
+## Automatic updates
+
+Forvid checks for a newer release every time it opens. When one exists, an
+**Update pill appears at the top-left**. Clicking it downloads the update,
+verifies its cryptographic signature, installs it in place and asks you to
+restart — that's the whole update. (Tauri's updater plugin; the signature
+guarantees the update really came from this repo's releases.)
+
 > **Why does the progress bar sometimes fill twice?** For high-quality
 > downloads, yt-dlp fetches the video and audio as separate streams and merges
 > them with ffmpeg — one fill per stream. It's normal.
@@ -240,8 +251,8 @@ cd src-tauri && cargo test
 # Full end-to-end tests — hits the network, downloads a real video
 cd src-tauri && cargo test -- --ignored
 
-# Production bundle
-npm run tauri build
+# Production bundle (signed for auto-updates)
+npm run build:signed
 ```
 
 ### Cutting a release (maintainer)
@@ -250,15 +261,31 @@ All platform packages are built by the GitHub Actions workflow in
 `.github/workflows/release.yml` — you never build them locally:
 
 ```sh
-git tag v0.1.0          # or the next version
-git push origin v0.1.0
+git tag v0.2.0          # or the next version
+git push origin v0.2.0
 ```
 
 The workflow builds macOS (universal), Windows (NSIS setup) and Linux
-(AppImage/deb) in parallel and creates a **draft release** with everything
-attached. Review the draft on the
+(AppImage/deb) in parallel, **signs the updater bundles**, generates the
+`latest.json` update manifest, and creates a **draft release** with
+everything attached. Review the draft on the
 [Releases page](https://github.com/geraldofori/forvid/releases), then
 publish. GitHub Actions is free for this public repository.
+
+### Update signing keys (maintainer)
+
+Auto-updates are signed with a minisign key pair:
+
+- **Private key** lives at `~/.tauri/forvid.key` — **never commit it and
+  never lose it** (losing it means existing installs can never auto-update
+  again). It is stored in GitHub as the Actions secrets
+  `TAURI_SIGNING_PRIVATE_KEY` (file contents) and
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty), which the release workflow
+  reads — nowhere else.
+- **Public key** is embedded in `src-tauri/tauri.conf.json` and is safe to
+  share (it's in the repo by design).
+- Local signed builds: `npm run build:signed` (plain `npm run tauri build`
+  fails without the key env var, by design).
 
 ### Project structure
 

@@ -91,34 +91,6 @@ export interface ToolsProgress {
   error: string | null;
 }
 
-export interface AppUpdate {
-  version: string;
-  url: string;
-  assetUrl: string | null;
-  assetName: string | null;
-}
-
-export function checkAppUpdate() {
-  return invoke<AppUpdate | null>("check_app_update");
-}
-
-export function downloadAppUpdate(assetUrl: string, assetName: string) {
-  return invoke<string>("download_app_update", { assetUrl, assetName });
-}
-
-export interface AppUpdateProgress {
-  downloadedBytes: number | null;
-  totalBytes: number | null;
-}
-
-export function onAppUpdateProgress(
-  callback: (event: AppUpdateProgress) => void,
-): Promise<UnlistenFn> {
-  return listen<AppUpdateProgress>("app-update-progress", (e) =>
-    callback(e.payload),
-  );
-}
-
 export function checkEnvironment() {
   return invoke<EnvironmentStatus>("check_environment");
 }

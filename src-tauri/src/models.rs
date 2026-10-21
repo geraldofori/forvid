@@ -151,24 +151,4 @@ pub struct ToolsProgress {
     pub error: Option<String>,
 }
 
-/// A newer Forvid release available on GitHub, when one exists.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppUpdate {
-    /// Version string of the newer release, e.g. "0.2.0".
-    pub version: String,
-    /// Release page URL (fallback when no asset matches this device).
-    pub url: String,
-    /// Direct download URL of the asset matching this device, if any.
-    pub asset_url: Option<String>,
-    /// File name of that asset, e.g. "Forvid_0.3.0_universal.dmg".
-    pub asset_name: Option<String>,
-}
 
-/// Progress for an app-update download (event: app-update-progress).
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppUpdateProgress {
-    pub downloaded_bytes: Option<u64>,
-    pub total_bytes: Option<u64>,
-}

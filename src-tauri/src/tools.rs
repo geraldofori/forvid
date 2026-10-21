@@ -230,11 +230,7 @@ impl ToolsProgress {
     }
 }
 
-fn download_spec(
-    dir: &Path,
-    spec: &ToolSpec,
-    emit: &impl Fn(ToolsProgress),
-) -> Result<(), String> {
+fn download_spec(dir: &Path, spec: &ToolSpec, emit: &impl Fn(ToolsProgress)) -> Result<(), String> {
     emit(ToolsProgress::simple(spec.id, "downloading"));
 
     let response = ureq::get(spec.url)

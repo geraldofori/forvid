@@ -2,12 +2,13 @@ mod commands;
 mod download;
 mod models;
 mod tools;
-mod update;
 mod ytdlp;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
@@ -27,8 +28,6 @@ pub fn run() {
             commands::check_environment,
             commands::check_tools,
             commands::setup_tools,
-            commands::check_app_update,
-            commands::download_app_update,
             commands::fetch_metadata,
             commands::start_download,
             commands::cancel_download
