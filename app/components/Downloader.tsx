@@ -21,7 +21,6 @@ import ClipboardChip from "./ClipboardChip";
 import InfoButton from "./InfoButton";
 import MetadataCard from "./MetadataCard";
 import PlaylistCard from "./PlaylistCard";
-import UpdateBanner from "./UpdateBanner";
 
 /** Best-effort native notification; silently skipped if permission is denied. */
 async function notifyCompletion(title: string, body: string) {
@@ -220,8 +219,6 @@ export default function Downloader() {
         <h1>Forvid</h1>
         <InfoButton />
       </header>
-
-      {job.phase === "idle" && <UpdateBanner />}
 
       {job.phase === "idle" && <ClipboardChip onUse={setUrl} />}
 

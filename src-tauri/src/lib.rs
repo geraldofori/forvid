@@ -28,6 +28,7 @@ pub fn run() {
             commands::check_tools,
             commands::setup_tools,
             commands::check_app_update,
+            commands::download_app_update,
             commands::fetch_metadata,
             commands::start_download,
             commands::cancel_download

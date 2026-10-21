@@ -641,25 +641,58 @@ code,
   align-self: flex-start;
 }
 
-/* ---- Update banner ---- */
+/* ---- Update pill (top-left) ---- */
 
-.update-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid rgba(74, 222, 128, 0.45);
-  border-radius: 10px;
-  font-size: 12px;
+.top-bar-left {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 10;
 }
 
-.update-text {
-  flex: 1;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.update-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.update-pill:hover:not(:disabled) {
+  background: rgba(255, 92, 69, 0.12);
+}
+
+.update-pill:disabled {
+  cursor: wait;
+}
+
+.update-pill.ready {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.update-spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: update-spin 0.8s linear infinite;
+}
+
+@keyframes update-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ---- Metadata card ---- */

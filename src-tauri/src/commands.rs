@@ -42,6 +42,24 @@ pub async fn check_app_update() -> Option<AppUpdate> {
         .flatten()
 }
 
+/// Download the update's device-matched asset into ~/Downloads, emitting
+/// `app-update-progress` events. Returns the downloaded file's path.
+#[tauri::command]
+pub async fn download_app_update(
+    app: AppHandle,
+    asset_url: String,
+    asset_name: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::update::download_app_update(&asset_url, &asset_name, move |event| {
+            use tauri::Emitter;
+            app.emit(crate::update::UPDATE_EVENT, &event).ok();
+        })
+    })
+    .await
+    .map_err(|e| format!("update download task failed: {e}"))?
+}
+
 /// Fetch metadata for a URL without downloading anything. Resolves to a
 /// single video (with real quality options) or a whole playlist.
 #[tauri::command]
