@@ -321,9 +321,11 @@ fn build_args(bins: &Binaries, request: &DownloadRequest) -> Vec<String> {
         .unwrap_or_else(|| ".".to_string());
 
     // Playlist jobs drop --no-playlist and save into a subfolder named
-    // after the playlist (documented output-template field playlist_title).
+    // after the playlist, each file prefixed with its original position
+    // (documented output-template fields playlist_title + playlist_index,
+    // zero-padded so files sort correctly).
     let output_template = if request.playlist {
-        "%(playlist_title)s/%(title)s.%(ext)s"
+        "%(playlist_title)s/%(playlist_index)02d - %(title)s.%(ext)s"
     } else {
         "%(title)s.%(ext)s"
     };
@@ -487,7 +489,10 @@ mod tests {
         let args = build_args(&test_bins(), &req);
         assert!(!args.contains(&"--no-playlist".to_string()));
         let pos = args.iter().position(|a| a == "-o").expect("-o present");
-        assert_eq!(args[pos + 1], "%(playlist_title)s/%(title)s.%(ext)s");
+        assert_eq!(
+            args[pos + 1],
+            "%(playlist_title)s/%(playlist_index)02d - %(title)s.%(ext)s"
+        );
     }
 
     #[test]

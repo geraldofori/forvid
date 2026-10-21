@@ -193,7 +193,7 @@ if yt-dlp supports it, Forvid can download it.
 5. **Hit Download.** Watch the live progress bar. Cancel anytime.
 6. When it's done, **Reveal in Finder** takes you straight to the file.
 
-> **Playlists** are saved into a new folder named after the playlist, inside
+> **Playlists** are saved into a new folder named after the playlist (files numbered in their original order), inside
 > your chosen destination — e.g. `~/Downloads/My Playlist/`.
 
 > **Why does the progress bar sometimes fill twice?** For high-quality
