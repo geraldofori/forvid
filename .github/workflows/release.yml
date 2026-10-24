@@ -67,22 +67,15 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Prepare updater signing key
-        id: signing-key
+      - name: Validate updater signing key
         shell: bash
         run: |
-          set -e
-          KEY_PATH="$HOME/.tauri/forvid.key"
-          mkdir -p "$HOME/.tauri"
-          printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > "$KEY_PATH"
-          # The Tauri CLI expects the private key env var/file to be a
+          # The Tauri CLI expects the private key env var to be a
           # base64-encoded minisign secret key (a single-line string).
-          # Validate it with Python (base64 -d is inconsistent across runners).
-          python3 - "$KEY_PATH" <<'PY'
-          import base64, sys
+          python3 - <<'PY'
+          import base64, os, sys
           try:
-              with open(sys.argv[1], 'r') as f:
-                  data = f.read()
+              data = os.environ['TAURI_SIGNING_PRIVATE_KEY']
               decoded = base64.b64decode(data)
               if b'untrusted comment:' not in decoded.splitlines()[0]:
                   print('ERROR: secret does not decode to a minisign key')
@@ -92,7 +85,6 @@ jobs:
               print(f'ERROR: {e}')
               sys.exit(1)
           PY
-          echo "path=$KEY_PATH" >> "$GITHUB_OUTPUT"
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
@@ -104,7 +96,7 @@ jobs:
           # makes tauri-action generate latest.json on the release.
           # The private key lives ONLY in this repo's Actions secrets —
           # never in the repository. Public key is in tauri.conf.json.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ steps.signing-key.outputs.path }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
