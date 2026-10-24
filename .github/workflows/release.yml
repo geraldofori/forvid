@@ -75,11 +75,17 @@ jobs:
           KEY_PATH="$HOME/.tauri/forvid.key"
           mkdir -p "$HOME/.tauri"
           printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > "$KEY_PATH"
-          # Validate the key looks like a minisign/rsign secret key
-          head -n1 "$KEY_PATH" | grep -q "untrusted comment:" || {
-            echo "ERROR: TAURI_SIGNING_PRIVATE_KEY does not look like a minisign secret key"
+          # The Tauri CLI expects the private key env var/file to be a
+          # base64-encoded minisign secret key (a single-line string).
+          # Validate it by decoding it and checking for the minisign header.
+          if ! decoded=$(base64 -d "$KEY_PATH" 2>/dev/null); then
+            echo "ERROR: TAURI_SIGNING_PRIVATE_KEY is not valid base64"
             exit 1
-          }
+          fi
+          if ! printf '%s' "$decoded" | head -n1 | grep -q "untrusted comment:"; then
+            echo "ERROR: TAURI_SIGNING_PRIVATE_KEY does not decode to a minisign secret key"
+            exit 1
+          fi
           echo "path=$KEY_PATH" >> "$GITHUB_OUTPUT"
           echo "Signing key prepared OK (public key is in tauri.conf.json)"
         env:
