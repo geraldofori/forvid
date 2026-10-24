@@ -78,10 +78,10 @@ jobs:
           # The Tauri CLI expects the private key env var/file to be a
           # base64-encoded minisign secret key (a single-line string).
           # Validate it with Python (base64 -d is inconsistent across runners).
-          python3 - <<'PY'
+          python3 - "$KEY_PATH" <<'PY'
           import base64, sys
           try:
-              with open('$KEY_PATH', 'r') as f:
+              with open(sys.argv[1], 'r') as f:
                   data = f.read()
               decoded = base64.b64decode(data)
               if b'untrusted comment:' not in decoded.splitlines()[0]:
