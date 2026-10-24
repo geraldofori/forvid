@@ -75,6 +75,10 @@ jobs:
           KEY_PATH="$HOME/.tauri/forvid.key"
           mkdir -p "$HOME/.tauri"
           printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > "$KEY_PATH"
+          echo "DEBUG secret length: $(wc -c < "$KEY_PATH")"
+          echo "DEBUG secret sha256: $(shasum -a 256 "$KEY_PATH" | cut -d' ' -f1)"
+          echo "DEBUG first 40 chars: $(head -c 40 "$KEY_PATH")"
+          echo "DEBUG last 10 chars: $(tail -c 10 "$KEY_PATH")"
           # The Tauri CLI expects the private key env var/file to be a
           # base64-encoded minisign secret key (a single-line string).
           # Validate it by decoding it and checking for the minisign header.
