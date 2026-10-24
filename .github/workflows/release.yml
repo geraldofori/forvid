@@ -60,6 +60,10 @@ jobs:
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      - name: Ensure macOS universal targets are installed
+        if: matrix.platform == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
       - name: Install frontend dependencies
         run: npm ci
 
@@ -97,4 +101,4 @@ jobs:
           releaseBody: "Download Forvid for your platform below, then follow the plain-language install steps in the [README](https://github.com/geraldofori/forvid#get-forvid-the-easy-way)."
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --verbose
