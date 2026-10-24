@@ -63,6 +63,24 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Prepare updater signing key
+        id: signing-key
+        shell: bash
+        run: |
+          set -e
+          KEY_PATH="$HOME/.tauri/forvid.key"
+          mkdir -p "$HOME/.tauri"
+          printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > "$KEY_PATH"
+          # Validate the key looks like a minisign/rsign secret key
+          head -n1 "$KEY_PATH" | grep -q "untrusted comment:" || {
+            echo "ERROR: TAURI_SIGNING_PRIVATE_KEY does not look like a minisign secret key"
+            exit 1
+          }
+          echo "path=$KEY_PATH" >> "$GITHUB_OUTPUT"
+          echo "Signing key prepared OK (public key is in tauri.conf.json)"
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - name: Build and create draft release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -71,7 +89,7 @@ jobs:
           # makes tauri-action generate latest.json on the release.
           # The private key lives ONLY in this repo's Actions secrets —
           # never in the repository. Public key is in tauri.conf.json.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ steps.signing-key.outputs.path }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
