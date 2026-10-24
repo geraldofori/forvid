@@ -75,23 +75,24 @@ jobs:
           KEY_PATH="$HOME/.tauri/forvid.key"
           mkdir -p "$HOME/.tauri"
           printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > "$KEY_PATH"
-          echo "DEBUG secret length: $(wc -c < "$KEY_PATH")"
-          echo "DEBUG secret sha256: $(shasum -a 256 "$KEY_PATH" | cut -d' ' -f1)"
-          echo "DEBUG first 40 chars: $(head -c 40 "$KEY_PATH")"
-          echo "DEBUG last 10 chars: $(tail -c 10 "$KEY_PATH")"
           # The Tauri CLI expects the private key env var/file to be a
           # base64-encoded minisign secret key (a single-line string).
-          # Validate it by decoding it and checking for the minisign header.
-          if ! decoded=$(base64 -d "$KEY_PATH" 2>/dev/null); then
-            echo "ERROR: TAURI_SIGNING_PRIVATE_KEY is not valid base64"
-            exit 1
-          fi
-          if ! printf '%s' "$decoded" | head -n1 | grep -q "untrusted comment:"; then
-            echo "ERROR: TAURI_SIGNING_PRIVATE_KEY does not decode to a minisign secret key"
-            exit 1
-          fi
+          # Validate it with Python (base64 -d is inconsistent across runners).
+          python3 - <<'PY'
+          import base64, sys
+          try:
+              with open('$KEY_PATH', 'r') as f:
+                  data = f.read()
+              decoded = base64.b64decode(data)
+              if b'untrusted comment:' not in decoded.splitlines()[0]:
+                  print('ERROR: secret does not decode to a minisign key')
+                  sys.exit(1)
+              print('Signing key validated OK')
+          except Exception as e:
+              print(f'ERROR: {e}')
+              sys.exit(1)
+          PY
           echo "path=$KEY_PATH" >> "$GITHUB_OUTPUT"
-          echo "Signing key prepared OK (public key is in tauri.conf.json)"
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
