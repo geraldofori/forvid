@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Forvid",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "identifier": "com.geraldofori.forvid",
   "build": {
     "frontendDist": "../out",

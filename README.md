@@ -78,7 +78,9 @@ installs everything it needs by itself the first time you open it.
   change the destination with the native macOS folder picker.
 - **Works with your system.** Dark and light mode (follows your Mac by
   default, or pick one), native notification when a download completes, and
-  **Reveal in Finder** to jump straight to the file.
+  a **Reveal** button that opens the right file manager on every OS
+  (Finder on macOS, File Explorer on Windows, your default file manager on
+  Linux).
 - **Updates itself.** When a new version is out, an update pill appears
   top-left. One click downloads, verifies and installs it — then just
   restart. No browser, no installer windows.
@@ -194,7 +196,8 @@ if yt-dlp supports it, Forvid can download it.
 4. **(Optional) change where it saves** with the *Change* button next to
    "Save to".
 5. **Hit Download.** Watch the live progress bar. Cancel anytime.
-6. When it's done, **Reveal in Finder** takes you straight to the file.
+6. When it's done, **Reveal** opens the file's folder in Finder on macOS,
+   File Explorer on Windows, or your default file manager on Linux.
 
 > **Playlists** are saved into a new folder named after the playlist (files numbered in their original order), inside
 > your chosen destination — e.g. `~/Downloads/My Playlist/`.

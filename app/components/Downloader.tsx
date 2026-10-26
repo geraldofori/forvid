@@ -10,7 +10,7 @@ import {
   type ProgressEvent,
   type Resolution,
 } from "@/lib/tauri";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   isPermissionGranted,
@@ -32,6 +32,31 @@ async function notifyCompletion(title: string, body: string) {
     if (granted) sendNotification({ title, body });
   } catch {
     // Notifications unavailable in this context.
+  }
+}
+
+/** OS-aware label for the "reveal file" action. */
+function revealLabel(): string {
+  const p = typeof navigator !== "undefined" ? navigator.platform : "";
+  if (/^Win/i.test(p)) return "Show in File Explorer";
+  if (/^Linux/i.test(p)) return "Show in folder";
+  return "Reveal in Finder";
+}
+
+/**
+ * Reveal a downloaded file in the system's file manager.
+ * Falls back to opening the containing folder if the native reveal
+ * command fails (common on Windows for some path formats).
+ */
+async function revealFile(filepath: string): Promise<void> {
+  try {
+    await revealItemInDir(filepath);
+  } catch {
+    // Fallback: open the parent directory in the default file manager.
+    const sep = filepath.includes("\\") ? "\\" : "/";
+    const lastSep = filepath.lastIndexOf(sep);
+    const dir = lastSep > 0 ? filepath.slice(0, lastSep) : filepath;
+    await openPath(dir);
   }
 }
 
@@ -321,9 +346,9 @@ export default function Downloader() {
             {job.filepath && (
               <button
                 className="btn ghost"
-                onClick={() => revealItemInDir(job.filepath).catch(() => {})}
+                onClick={() => revealFile(job.filepath).catch(() => {})}
               >
-                Reveal in Finder
+                {revealLabel()}
               </button>
             )}
             <button className="btn ghost" onClick={reset}>
