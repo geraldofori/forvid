@@ -328,18 +328,21 @@ export default function Downloader() {
       {job.phase === "completed" && (
         <div className="result success">
           <p className="result-title">
-            {job.partialDownloaded != null
+            {job.partialDownloaded != null && job.partialDownloaded !== job.partialTotal
               ? `Saved ${job.partialDownloaded}${
                   job.partialTotal ? ` of ${job.partialTotal}` : ""
                 } files`
               : "Download complete"}
           </p>
-          {job.partialDownloaded != null && (
+          {job.partialDownloaded != null && job.partialDownloaded !== job.partialTotal && (
             <p className="partial-note">
               Some entries were skipped — usually private, deleted or
               region-locked videos, which can&apos;t be downloaded.
               Re-running will retry only those.
             </p>
+          )}
+          {job.note && (
+            <pre className="error-detail">{job.note}</pre>
           )}
           <code className="filepath">{job.filepath}</code>
           <div className="result-actions">

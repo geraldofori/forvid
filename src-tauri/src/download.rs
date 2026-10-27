@@ -14,7 +14,6 @@
 //! the child never blocks, and lets `cancel` kill the process at any time.
 
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -118,11 +117,11 @@ fn supervise(
         let buf = stderr_buf.clone();
         std::thread::spawn(move || {
             if let Some(stderr) = stderr {
-                for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+                for_each_lossy_line(stderr, |line| {
                     let mut b = buf.lock().unwrap();
-                    b.push_str(&line);
+                    b.push_str(line);
                     b.push('\n');
-                }
+                });
             }
         })
     };
@@ -137,7 +136,7 @@ fn supervise(
             let mut filepaths: Vec<String> = Vec::new();
             let mut playlist_total: Option<u32> = None;
             if let Some(stdout) = stdout {
-                for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+                for_each_lossy_line(stdout, |line| {
                     if let Some(rest) = line.strip_prefix("YTDLP|") {
                         if let Some(event) = parse_progress_line(&job_id, rest) {
                             if event.playlist_count.is_some() {
@@ -149,7 +148,7 @@ fn supervise(
                         // --print after_move:filepath output
                         filepaths.push(line.trim().to_string());
                     }
-                }
+                });
             }
             (filepaths, playlist_total)
         })
@@ -187,6 +186,35 @@ fn supervise(
     emit(terminal);
 }
 
+/// Read `reader` line by line, converting invalid UTF-8 lossily.
+/// `BufRead::lines()` yields `Err` for a non-UTF-8 line, and a
+/// `map_while(Result::ok)` chain would stop the whole stream there —
+/// discarding every later line. One odd character in a video title
+/// must not truncate the output (it under-counts produced files and
+/// can even hang yt-dlp once the stdout pipe fills).
+fn for_each_lossy_line<R: std::io::Read, F: FnMut(&str)>(mut reader: R, mut f: F) {
+    let mut buf: Vec<u8> = Vec::new();
+    let mut chunk = [0u8; 8192];
+    loop {
+        match reader.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(n) => buf.extend_from_slice(&chunk[..n]),
+            Err(_) => break,
+        }
+        while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
+            let mut line: Vec<u8> = buf.drain(..=pos).collect();
+            line.pop(); // '\n'
+            if line.last() == Some(&b'\r') {
+                line.pop();
+            }
+            f(&String::from_utf8_lossy(&line));
+        }
+    }
+    if !buf.is_empty() {
+        f(&String::from_utf8_lossy(&buf));
+    }
+}
+
 /// Decide the terminal event from how the process exited and what it
 /// actually produced. Crucially, yt-dlp exits non-zero when ANY playlist
 /// entry fails (private/deleted/region-locked videos are common) even
@@ -211,11 +239,20 @@ fn decide_terminal(
         return event;
     }
     if !filepaths.is_empty() {
-        // Non-zero exit but files landed: partial success.
+        // Non-zero exit but files landed: partial success — unless every
+        // playlist entry we know of produced a file. Then nothing was
+        // skipped and the non-zero exit came from something benign
+        // (e.g. a postprocessor hiccup after the file was written), so
+        // report a plain completion instead of "Saved X of Y".
+        let all_accounted = playlist_total
+            .map(|total| filepaths.len() as u32 >= total)
+            .unwrap_or(false);
         event.stage = "completed".to_string();
         event.filepath = filepaths.last().cloned();
-        event.partial_downloaded = Some(filepaths.len() as u32);
-        event.partial_total = playlist_total;
+        if !all_accounted {
+            event.partial_downloaded = Some(filepaths.len() as u32);
+            event.partial_total = playlist_total;
+        }
         event.error = Some(stderr_tail(stderr));
         return event;
     }
@@ -541,6 +578,42 @@ mod tests {
         let ev = decide_terminal("job-1", false, false, vec![], None, "ERROR: boom");
         assert_eq!(ev.stage, "error");
         assert_eq!(ev.error.as_deref(), Some("ERROR: boom"));
+    }
+
+    #[test]
+    fn nonzero_exit_with_every_entry_produced_is_completed() {
+        // All 25 playlist entries printed a filepath, yet yt-dlp exited
+        // non-zero (e.g. a postprocessor hiccup after the file landed).
+        // Nothing was skipped, so this must NOT read "Saved 25 of 25".
+        let files: Vec<String> = (1..=25).map(|i| format!("/tmp/{i}.mp4")).collect();
+        let ev = decide_terminal(
+            "job-1",
+            false,
+            false,
+            files,
+            Some(25),
+            "ERROR: Postprocessing: thumbnail embedding failed",
+        );
+        assert_eq!(ev.stage, "completed");
+        assert_eq!(ev.partial_downloaded, None);
+        assert_eq!(ev.partial_total, None);
+        assert!(ev.error.is_some(), "stderr tail kept as a note");
+    }
+
+    #[test]
+    fn lossy_reader_survives_invalid_utf8_mid_stream() {
+        // A title with a broken byte sequence once truncated every later
+        // line (map_while(Result::ok)); the reader must keep going and
+        // preserve all filepaths.
+        let mut input = Vec::new();
+        input.extend_from_slice(b"/tmp/a.mp4\n");
+        input.extend_from_slice(b"/tmp/b\xff\xfd.mp4\n"); // invalid UTF-8
+        input.extend_from_slice(b"/tmp/c.mp4\n");
+        let mut paths: Vec<String> = Vec::new();
+        for_each_lossy_line(&input[..], |line| paths.push(line.to_string()));
+        assert_eq!(paths.len(), 3);
+        assert_eq!(paths[0], "/tmp/a.mp4");
+        assert_eq!(paths[2], "/tmp/c.mp4");
     }
 
     /// Full end-to-end gate: downloads a real video through the engine,
